@@ -1,0 +1,274 @@
+'use client'
+
+import React, { useState, useEffect, useMemo } from 'react'
+import { useMonthlyReportItems, type MonthlyReportItem } from '@/hooks/useMonthlyReportItems'
+import { useEquipments, type Equipment } from '@/features/equipment/hooks/useEquipments'
+import { getCategoryFromEquipmentType, isAmmunitionsGroup } from '@/features/equipment/utils/equipmentGroup'
+import { ArrowLeft, AlertCircle, Package } from 'lucide-react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+
+interface BowReportDetailsClientProps {
+  bowNumber: string
+  month: number
+  year: number
+  basePath: string
+  reportsPath: string
+}
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+const formatDateForDisplay = (dateString: string | null): string => {
+  if (!dateString) return '-'
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString
+    
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    
+    return `${day}-${month}-${year}`
+  } catch {
+    return dateString
+  }
+}
+
+export function BowReportDetailsClient({
+  bowNumber,
+  month: initialMonth,
+  year: initialYear,
+  basePath,
+  reportsPath
+}: BowReportDetailsClientProps) {
+  const searchParams = useSearchParams()
+  const currentMonth = searchParams.get('month') ? parseInt(searchParams.get('month')!, 10) : initialMonth
+  const currentYear = searchParams.get('year') ? parseInt(searchParams.get('year')!, 10) : initialYear
+
+  const { items, loading, error } = useMonthlyReportItems({ bowNumber, month: currentMonth, year: currentYear })
+  const { equipments: equipmentList, loading: loadingEquipments } = useEquipments()
+
+  // Create a map of unique_code -> equipment info
+  const equipmentMap = useMemo(() => {
+    const map: Record<string, Equipment> = {}
+    equipmentList.forEach(equip => {
+      if (equip.unique_code && equip.id) {
+        map[equip.unique_code] = equip
+      }
+    })
+    return map
+  }, [equipmentList])
+
+  // Get sorted equipment codes (longer first to match more specific prefixes)
+  const sortedEquipmentCodes = useMemo(() => {
+    return Object.keys(equipmentMap).sort((a, b) => b.length - a.length)
+  }, [equipmentMap])
+
+  // Group items by equipment code
+  const groupedItems = useMemo(() => {
+    if (items.length === 0) return {}
+
+    const groups: Record<string, MonthlyReportItem[]> = {}
+    
+    items.forEach(item => {
+      let matchedEquipmentCode: string | null = null
+      
+      // Match against equipment codes
+      for (const equipCode of sortedEquipmentCodes) {
+        if (item.unique_code.startsWith(equipCode)) {
+          matchedEquipmentCode = equipCode
+          break
+        }
+      }
+      
+      // If no match found, try extracting prefix from item unique code
+      if (!matchedEquipmentCode) {
+        const parts = item.unique_code.split('-')
+        if (parts.length >= 1) {
+          matchedEquipmentCode = parts[0]
+        }
+      }
+      
+      // Only add items that match an equipment code
+      if (matchedEquipmentCode && matchedEquipmentCode !== 'Uncategorized') {
+        if (!groups[matchedEquipmentCode]) {
+          groups[matchedEquipmentCode] = []
+        }
+        groups[matchedEquipmentCode].push(item)
+      }
+    })
+
+    return groups
+  }, [items, sortedEquipmentCodes])
+
+  // Sort equipment codes alphabetically for display
+  const sortedGroupedEquipmentCodes = useMemo(() => {
+    return Object.keys(groupedItems).sort()
+  }, [groupedItems])
+
+  // Check if an equipment group is ammunition
+  const isEquipmentAmmunition = (equipmentCode: string): boolean => {
+    const equipment = equipmentMap[equipmentCode]
+    if (!equipment) return false
+    const equipmentType = equipment.equipment_type?.toLowerCase() || ''
+    return equipmentType.includes('ammunition') || equipmentType.includes('ammo') || equipmentType === 'am'
+  }
+
+  const monthName = MONTHS[currentMonth]
+
+  if (loading || loadingEquipments) {
+    return (
+      <div className="space-y-3">
+        <div className=" border border-foreground/5  bg-surface p-3 shadow-card text-center">
+          <div className="text-foreground-muted">Loading report items...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <div className=" border border-error/30 bg-error-bg p-3 shadow-card">
+          <div className="flex items-center gap-2 text-error">
+            <AlertCircle className="w-5 h-5" />
+            <div>{error}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className=" border border-foreground/5  bg-surface p-3 shadow-card text-center">
+          <Package className="w-8 h-8 text-foreground-muted mx-auto mb-3" />
+          <div className="text-foreground-muted">No items found for this report</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link
+          href={reportsPath}
+          className="inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Reports
+        </Link>
+      </div>
+
+      {/* Title Card */}
+      <div className=" border border-foreground/5  bg-surface p-3 shadow-card">
+        <h1 className="text-[20px] font-semibold text-foreground mb-2">
+          {bowNumber} - {monthName} {currentYear}
+        </h1>
+        <p className="text-sm text-foreground-muted">
+          Monthly report details with {items.length} total items across {sortedGroupedEquipmentCodes.length} equipment categories
+        </p>
+      </div>
+
+      {/* Items grouped by equipment */}
+      {sortedGroupedEquipmentCodes.map((equipmentCode) => {
+        const equipment = equipmentMap[equipmentCode]
+        const equipmentName = equipment?.name || equipmentCode
+        const equipmentType = equipment?.equipment_type
+        const isNavigational = equipmentType?.toLowerCase() === 'navigational'
+        const isAmmunition = isEquipmentAmmunition(equipmentCode)
+
+        return (
+          <div key={equipmentCode} className="border border-foreground/10 overflow-hidden">
+            <div className="bg-foreground/5 px-4 py-3 border-b border-foreground/10">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-foreground">{equipmentName}</h4>
+              <p className="text-xs text-foreground-muted">{equipmentCode} • {groupedItems[equipmentCode].length} items</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1500px]">
+                <thead className="bg-foreground/5">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Unique Code</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
+                    {isAmmunition ? (
+                      <>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Previous Report</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Expended</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Replenished</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Balance on Hand</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Brand</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Model</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Serial No.</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part No.</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Manufactured</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Installed/Issued</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last PMS</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last Repair</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
+                        {isNavigational && (
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Running Hours</th>
+                        )}
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Remarks</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-foreground/10">
+                  {groupedItems[equipmentCode].map((item) => (
+                    <tr key={item.id} className="hover:bg-foreground/3">
+                      <td className="px-3 py-2 text-xs text-foreground font-medium whitespace-nowrap">{item.unique_code || '-'}</td>
+                      <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.classification || '-'}</td>
+                      <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.nomenclature || '-'}</td>
+                      {isAmmunition ? (
+                        <>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.previous_report ?? '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.expended ?? '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.replenished ?? '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.balance_on_hand ?? '-'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.brand || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.model || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.serial_number || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_manufactured)}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_installed_issued)}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_pms)}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_repair)}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.ics || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.par || '-'}</td>
+                          {isNavigational && (
+                            <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.running_hours || '-'}</td>
+                          )}
+                          <td className="px-3 py-2 text-xs">
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
+                              {item.status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.remarks || '-'}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

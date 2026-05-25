@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  /* ─── VERDANT FORGE DESIGN SYSTEM ─── */
+  /* Canvas / Background */
+  --background: #FFFFFF;
+  /* Containers / Grid Borders */
+  --surface: #F8F9FA;
+  /* Active States / Primary Action */
+  --primary: #255F38;
+  /* Highlights / CTAs / Accent */
+  --accent: #1F7D53;
+  --secondary: #1F7D53;
+  --secondary-hover: #1a6b47;
+
+  /* Foreground */
+  --foreground: #18230F;
+  --foreground-muted: #27391C;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #18230F;
+  --sidebar-active: #F8F9FA;
+
+  /* Status */
+  --error: #DC2626;
+  --error-bg: #FEE2E2;
+  --success: #16A34A;
+  --success-bg: #DCFCE7;
+  --warning: #D97706;
+  --warning-bg: #FEF3C7;
+
+  /* Shadows */
+  --card-shadow: 0px 2px 8px rgba(0, 0, 0, 0.4);
+  --popover-shadow: 0px 8px 24px rgba(0, 0, 0, 0.6);
+
+  /* ─── BORDER RADIUS: ZERO — NO CURVES ─── */
+  --radius-card: 0px;
+  --radius-button: 0px;
+  --radius-lg: 0px;
+  --radius-md: 0px;
+}
+
+/* Tailwind CSS v4 @theme at-rule */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-accent: var(--accent);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --font-sans: "Inter", "Manrope", system-ui, sans-serif;
+
+  /* All radii forced to 0 */
+  --radius-card: 0px;
+  --radius-button: 0px;
+  --radius-lg: 0px;
+  --radius-md: 0px;
+
+  --shadow-card: var(--card-shadow);
+  --shadow-popover: var(--popover-shadow);
+}
+
+/* ─── GLOBAL RESETS ─── */
+*,
+*::before,
+*::after {
+  border-radius: 0px !important;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* ─── UPPERCASED INTERACTIVE ELEMENTS ─── */
+nav a,
+nav button,
+nav span,
+button,
+.btn,
+th,
+label {
+  letter-spacing: 0.04em;
+}
