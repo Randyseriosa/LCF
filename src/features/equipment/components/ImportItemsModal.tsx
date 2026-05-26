@@ -30,6 +30,7 @@ interface ImportItemsModalProps {
     equipmentName?: string
     equipmentUniqueCode?: string
     onImportComplete: () => void
+    isHqInventory?: boolean
 }
 
 export function ImportItemsModal({
@@ -38,7 +39,8 @@ export function ImportItemsModal({
     equipmentId,
     equipmentName,
     equipmentUniqueCode,
-    onImportComplete
+    onImportComplete,
+    isHqInventory
 }: ImportItemsModalProps) {
     const [file, setFile] = useState<File | null>(null)
     const [parsedData, setParsedData] = useState<ImportItem[]>([])
@@ -160,7 +162,7 @@ export function ImportItemsModal({
                         else if (headerName.includes('serial') || headerName === 'serial_number' || headerName === 'serialno') columnMap.serial_number = index
                         else if (headerName.includes('part') || headerName === 'part_number' || headerName === 'partno') columnMap.part_number = index
                         else if (headerName.includes('date manufactured') || headerName === 'date_manufactured' || headerName === 'manufactured date') columnMap.date_manufactured = index
-                        else if (headerName.includes('date installed') || headerName.includes('date issued') || headerName === 'date_installed_issued' || headerName.includes('installed/issued')) columnMap.date_installed_issued = index
+                        else if (headerName.includes('date installed') || headerName.includes('date issued') || headerName.includes('date acquired') || headerName === 'date_installed_issued' || headerName.includes('installed/issued')) columnMap.date_installed_issued = index
                         else if (headerName === 'ics' || headerName.includes('inventory custodian')) columnMap.ics = index
                         else if (headerName === 'par' || headerName.includes('property acknowledgement')) columnMap.par = index
                         else if (headerName === 'quantity' || headerName === 'qty' || headerName === 'count' || headerName === 'qty.') columnMap.quantity = index
@@ -493,7 +495,9 @@ export function ImportItemsModal({
                                 Upload an Excel file (.xlsx or .xls) containing the items to import.
                             </p>
                             <p className="text-xs text-foreground-muted mb-4">
-                                Expected columns: Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Installed/Issued, ICS, PAR
+                                Expected columns: {isHqInventory ?
+                                    'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Acquired' :
+                                    'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Installed/Issued, ICS, PAR'}
                             </p>
                             {!equipmentId && (
                                 <p className="text-xs text-secondary mb-4 font-medium">
@@ -625,12 +629,16 @@ export function ImportItemsModal({
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Serial Number</th>
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part Number</th>
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Manufactured</th>
-                                                                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Installed/Issued</th>
-                                                                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
-                                                                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
+                                                                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">{isHqInventory ? 'Date Acquired' : 'Date Installed/Issued'}</th>
+                                                                    {!isHqInventory && (
+                                                                        <>
+                                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
+                                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
+                                                                        </>
+                                                                    )}
                                                                 </>
                                                             )}
-                                                            {isAmmunitions && (
+                                                            {isAmmunitions && !isHqInventory && (
                                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Quantity</th>
                                                             )}
                                                         </tr>
@@ -660,11 +668,15 @@ export function ImportItemsModal({
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_manufactured || '-'}</td>
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_installed_issued || '-'}</td>
-                                                                        <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.ics || '-'}</td>
-                                                                        <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.par || '-'}</td>
+                                                                        {!isHqInventory && (
+                                                                            <>
+                                                                                <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.ics || '-'}</td>
+                                                                                <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.par || '-'}</td>
+                                                                            </>
+                                                                        )}
                                                                     </>
                                                                 )}
-                                                                {isAmmunitions && (
+                                                                {isAmmunitions && !isHqInventory && (
                                                                     <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.quantity ?? '-'}</td>
                                                                 )}
                                                             </tr>

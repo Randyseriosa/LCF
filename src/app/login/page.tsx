@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
-import { Eye, EyeOff, Lock, User } from 'lucide-react'
+import { Eye, EyeOff, Lock, User, Loader2 } from 'lucide-react'
 export default function LoginPage() {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
@@ -145,7 +145,7 @@ export default function LoginPage() {
                             className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-accent border border-accent/60 text-white font-bold text-xs py-3 px-4 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
                         >
                             {loading && (
-                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent animate-spin" />
+                                <Loader2 size={14} className="animate-spin" />
                             )}
                             {loading ? 'Authenticating...' : 'Sign In'}
                         </button>

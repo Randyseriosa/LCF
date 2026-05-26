@@ -11,9 +11,9 @@ interface Payload {
 
 // Validate item code format: TYPE_CODE-BOW_NUMBER-SEQUENCE (e.g., WE01-PS177-001)
 function validateItemCode(code: string): boolean {
-  // Pattern: 2 letters + 2 digits + hyphen + alphanumeric + hyphen + 3 digits
+  // Pattern: 2-4 alphanumeric + hyphen + alphanumeric + hyphen + 3-4 digits
   // Examples: WE01-PS177-001, CE01-PS144-002, AM03-PG200-001
-  const pattern = /^[A-Z]{2}\d{2}-[A-Z0-9]+-\d{3}$/
+  const pattern = /^[A-Z0-9]{2,4}-[A-Z0-9]+-\d{3,4}$/i
   return pattern.test(code)
 }
 
@@ -25,25 +25,26 @@ async function generateItemCode(supabaseAdmin: any, equipmentId: string, vesselI
     .select('unique_code')
     .eq('id', equipmentId)
     .single()
-  
+
   if (equipmentError || !equipment?.unique_code) {
     throw new Error('Equipment not found or missing unique code')
   }
-  
+
   // Fetch vessel bow_number
   const { data: vessel, error: vesselError } = await supabaseAdmin
     .from('vessels')
     .select('bow_number')
     .eq('id', vesselId)
     .single()
-  
+
   if (vesselError || !vessel?.bow_number) {
     throw new Error('Vessel not found or missing bow number')
   }
-  
-  const equipmentTypeCode = equipment.unique_code
+
+  let equipmentTypeCode = equipment.unique_code
+  if (equipmentTypeCode.length === 2) equipmentTypeCode += '01'
   const bowNumber = vessel.bow_number
-  
+
   // Query items to find the highest sequential number for this equipment+vessel combination
   const { data: items, error } = await supabaseAdmin
     .from('items')
@@ -53,11 +54,11 @@ async function generateItemCode(supabaseAdmin: any, equipmentId: string, vesselI
     .like('unique_code', `${equipmentTypeCode}-${bowNumber}-%`)
     .order('unique_code', { ascending: false })
     .limit(1)
-  
+
   if (error) {
     throw new Error(`Failed to query items: ${error.message}`)
   }
-  
+
   let nextNumber = 1
   if (items && items.length > 0 && items[0].unique_code) {
     // Extract the sequential number from the last item code
@@ -67,7 +68,7 @@ async function generateItemCode(supabaseAdmin: any, equipmentId: string, vesselI
       nextNumber = lastNumber + 1
     }
   }
-  
+
   // Format as 3-digit number with leading zeros
   const sequentialNumber = nextNumber.toString().padStart(3, '0')
   return `${equipmentTypeCode}-${bowNumber}-${sequentialNumber}`
@@ -119,18 +120,18 @@ Deno.serve(async (req: Request) => {
       if (!item_code) {
         return errorResponse('item_code is required for validation', 400)
       }
-      
+
       const isValid = validateItemCode(item_code)
-      
+
       // Check if item_code already exists
       const { data: existing } = await supabaseAdmin
         .from('items')
         .select('id')
         .eq('unique_code', item_code)
         .single()
-      
+
       const isUnique = !existing
-      
+
       return successResponse({
         valid: isValid,
         unique: isUnique,

@@ -8,7 +8,7 @@ import { BowTable } from '@/features/dashboard/components/BowTable'
 import InventoryReportPage from '@/features/inventory-report/components/InventoryReportPage'
 import { Role } from '@/lib/types/roles'
 import type { ClassOfVessel } from '@/hooks/useClassesOfVessel'
-import { Anchor, FileBarChart2, ArrowRight, Inbox, TrendingUp, Package, Shield, FileText } from 'lucide-react'
+import { Anchor, FileBarChart2, ArrowRight, TrendingUp, Shield, FileText, Archive } from 'lucide-react'
 
 const SECTION = {
     home: 'home',
@@ -146,6 +146,22 @@ export function DashboardClient({ role, basePath }: DashboardClientProps) {
                             </div>
                             <h3 className="text-foreground font-bold text-[16px] mb-1">Reports</h3>
                             <p className="text-foreground-muted text-xs mb-3">View and generate summary reports</p>
+                            <span className="inline-flex items-center gap-1.5 bg-accent/20 border border-accent/40 px-4 py-1.5 text-xs font-bold text-accent transition-all group-hover:bg-accent group-hover:text-white">
+                                Open <ArrowRight className="w-3 h-3" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            href={`${basePath}/retired-items`}
+                            className="group relative overflow-hidden border border-primary/30 bg-surface p-3 text-left shadow-card transition-all duration-150 hover:border-accent/60 hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-accent sm:p-4 border-t-2 border-t-accent/40"
+                        >
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="flex h-8 w-8 items-center justify-center bg-accent/15 border border-accent/30">
+                                    <Archive className="w-6 h-6 text-accent" />
+                                </div>
+                            </div>
+                            <h3 className="text-foreground font-bold text-[16px] mb-1">Retired Items</h3>
+                            <p className="text-foreground-muted text-xs mb-3">Manage decomissioned equipment</p>
                             <span className="inline-flex items-center gap-1.5 bg-accent/20 border border-accent/40 px-4 py-1.5 text-xs font-bold text-accent transition-all group-hover:bg-accent group-hover:text-white">
                                 Open <ArrowRight className="w-3 h-3" />
                             </span>

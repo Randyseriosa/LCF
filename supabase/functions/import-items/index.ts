@@ -137,6 +137,22 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Failed to fetch equipments', 500)
     }
 
+    // Fetch all vessels for bow matching
+    const { data: vessels, error: vesselsError } = await supabaseAdmin
+      .from('vessels')
+      .select('id, bow_number')
+
+    if (vesselsError || !vessels) {
+      return errorResponse('Failed to fetch vessels', 500)
+    }
+
+    const vesselMap: Record<string, string> = {}
+    vessels.forEach((v: { id: string; bow_number: string | null }) => {
+      if (v.bow_number && v.id) {
+        vesselMap[v.bow_number] = v.id
+      }
+    })
+
     // Check for existing items to skip duplicates
     const uniqueCodes = items.map(item => item.unique_code)
     const { data: existingItems, error: existingItemsError } = await supabaseAdmin
@@ -196,9 +212,24 @@ Deno.serve(async (req: Request) => {
         itemEquipmentId = equipmentMap[matchedEquipmentCode]
       }
 
+      // Infer vessel_id from unique_code if not explicitly provided
+      let itemVesselId = vessel_id || null
+      if (!itemVesselId && item.unique_code) {
+        const parts = item.unique_code.split('-')
+        if (parts.length >= 2) {
+          // Look for bow number in the unique code parts (e.g. TYPE_CODE-BOW_NUMBER-SEQUENCE)
+          for (const part of parts) {
+            if (vesselMap[part]) {
+              itemVesselId = vesselMap[part]
+              break
+            }
+          }
+        }
+      }
+
       return {
         equipment_id: itemEquipmentId,
-        vessel_id: vessel_id || null,
+        vessel_id: itemVesselId,
         unique_code: item.unique_code,
         classification: item.classification,
         nomenclature: item.nomenclature,
@@ -215,24 +246,64 @@ Deno.serve(async (req: Request) => {
     })
 
     if (itemsToInsert.length === 0) {
-      return successResponse({ 
+      return successResponse({
         message: 'No new items to import. All items already exist in the system.',
         count: 0,
         skipped: items.length
       })
     }
 
-    // Insert items in batch
-    const { error: insertError } = await supabaseAdmin
+    // Insert items in batch and select to get their IDs
+    const { data: insertedItems, error: insertError } = await supabaseAdmin
       .from('items')
       .insert(itemsToInsert)
+      .select()
 
     if (insertError) {
       console.error('Insert error:', insertError)
       return errorResponse(insertError.message, 500)
     }
 
-    return successResponse({ 
+    // Create assignments for items that have a vessel_id
+    const assignmentsToInsert = (insertedItems || [])
+      .filter((item: any) => item.vessel_id)
+      .map((item: any) => ({
+        item_id: item.id,
+        vessel_id: item.vessel_id,
+        is_current: true
+      }))
+
+    if (assignmentsToInsert.length > 0) {
+      const { data: insertedAssignments, error: assignError } = await supabaseAdmin
+        .from('vessel_item_assignments')
+        .insert(assignmentsToInsert)
+        .select('id, item_id')
+
+      if (assignError) {
+        console.error('Assignment insert error:', assignError)
+        // We do not fail the whole request, but log it.
+      } else if (insertedAssignments) {
+        // Update items to set current_assignment_id
+        const updatePromises = insertedAssignments.map((assignment: any) =>
+          supabaseAdmin
+            .from('items')
+            .update({ current_assignment_id: assignment.id })
+            .eq('id', assignment.item_id)
+        )
+
+        // Execute updates in parallel chunks to avoid connection limits
+        const chunkArray = (arr: any[], size: number) =>
+          Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+            arr.slice(i * size, i * size + size)
+          )
+
+        for (const chunk of chunkArray(updatePromises, 50)) {
+          await Promise.all(chunk)
+        }
+      }
+    }
+
+    return successResponse({
       message: `Successfully imported ${itemsToInsert.length} items`,
       count: itemsToInsert.length,
       skipped: items.length - itemsToInsert.length

@@ -9,9 +9,9 @@ interface Payload {
 
 // Validate equipment type code pattern (e.g., WE, CE, NE, IE, AM)
 function validateEquipmentUniqueCode(code: string): boolean {
-  // Pattern: 2 letters only
-  // Examples: WE (Weapon), CE (Communication), NE (Navigational), IE (ICT), AM (Ammunitions)
-  const pattern = /^[A-Z]{2}$/
+  // Pattern: 2-4 alphanumeric characters
+  // Examples: WE, CE, AM, WE01, CE01
+  const pattern = /^[A-Z0-9]{2,4}$/i
   return pattern.test(code)
 }
 
@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
         return errorResponse('unique_code is required for validation', 400)
       }
       const isValid = validateEquipmentUniqueCode(unique_code)
-      
+
       // Check if unique_code already exists (exclude current equipment if updating)
       const { data: existing } = await supabaseAdmin
         .from('equipments')
@@ -63,25 +63,25 @@ Deno.serve(async (req: Request) => {
         .eq('unique_code', unique_code)
         .neq('id', equipment_id || '')
         .single()
-      
+
       const isUnique = !existing
-      
+
       return successResponse({
         valid: isValid,
         unique: isUnique,
         message: isValid
           ? (isUnique ? 'Valid unique code' : 'Unique code already exists')
-          : 'Invalid unique code format. Expected format: e.g., WE, CE, NE, IE, AM'
+          : 'Invalid unique code format. Expected format: 2-4 alphanumeric chars (e.g., WE, WE01)'
       })
     } else if (action === 'update-unique-code') {
       if (!equipment_id || !unique_code) {
         return errorResponse('equipment_id and unique_code are required', 400)
       }
-      
+
       if (!validateEquipmentUniqueCode(unique_code)) {
         return errorResponse('Invalid unique code format', 400)
       }
-      
+
       // Check if unique_code already exists
       const { data: existing, error: checkError } = await supabaseAdmin
         .from('equipments')
@@ -89,18 +89,18 @@ Deno.serve(async (req: Request) => {
         .eq('unique_code', unique_code)
         .neq('id', equipment_id)
         .single()
-      
+
       if (existing) {
         return errorResponse('Unique code already exists', 400)
       }
-      
+
       const { error, data } = await supabaseAdmin
         .from('equipments')
         .update({ unique_code })
         .eq('id', equipment_id)
         .select()
         .single()
-      
+
       if (error) return errorResponse(error.message, 500)
       return successResponse(data)
     }

@@ -4,10 +4,11 @@ import React, { useState } from 'react'
 import { Inbox } from 'lucide-react'
 import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTransfer'
 import { HistoryLogs } from '@/features/hlcf/components/HistoryLogs'
+import { MasterListTab } from '@/features/hlcf/components/MasterListTab'
 import { ImportItemsModal } from '@/features/equipment/components/ImportItemsModal'
 
 export function HLCFPageClient() {
-    const [activeTab, setActiveTab] = useState<'hq' | 'bow' | 'logs'>('hq')
+    const [activeTab, setActiveTab] = useState<'hq' | 'bow' | 'logs' | 'masterlist'>('hq')
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
     return (
@@ -35,6 +36,15 @@ export function HLCFPageClient() {
                         }`}
                 >
                     Bow Inventory
+                </button>
+                <button
+                    onClick={() => setActiveTab('masterlist')}
+                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'masterlist'
+                        ? 'bg-primary text-background'
+                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
+                        }`}
+                >
+                    Masterlist
                 </button>
                 <button
                     onClick={() => setActiveTab('logs')}
@@ -77,6 +87,12 @@ export function HLCFPageClient() {
                     </div>
                 )}
 
+                {activeTab === 'masterlist' && (
+                    <div className="py-2">
+                        <MasterListTab />
+                    </div>
+                )}
+
                 {activeTab === 'logs' && (
                     <div className="py-2">
                         <HistoryLogs />
@@ -87,6 +103,7 @@ export function HLCFPageClient() {
             <ImportItemsModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
+                isHqInventory={true}
                 onImportComplete={() => {
                     setIsImportModalOpen(false)
                     // If we had a table here we would refresh it

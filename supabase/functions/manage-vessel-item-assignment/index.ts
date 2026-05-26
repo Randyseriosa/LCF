@@ -2,13 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt.ts'
 
 interface Payload {
-  action: 'create' | 'update' | 'delete' | 'transfer'
+  action: 'create' | 'update' | 'delete' | 'transfer' | 'preview'
   item_id?: string
   vessel_id?: string
   assignment_id?: string
   vesselId?: string
   equipmentId?: string
   selectedIds?: string[]
+  customCodes?: Record<string, string>
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,7 +40,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: Payload = await req.json()
-    const { action, item_id, vessel_id, assignment_id, vesselId, equipmentId, selectedIds } = body
+    const { action, item_id, vessel_id, assignment_id, vesselId, equipmentId, selectedIds, customCodes } = body
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -208,7 +209,8 @@ Deno.serve(async (req: Request) => {
           .eq('id', equipmentId)
           .single()
 
-        const eqTypeCode = eq?.unique_code || 'XX'
+        let eqTypeCode = eq?.unique_code || 'XX'
+        if (eqTypeCode.length === 2) eqTypeCode += '01'
 
         if (!eqCounters.has(equipmentId)) {
           // Find max sequence
@@ -285,7 +287,10 @@ Deno.serve(async (req: Request) => {
           continue
         }
 
-        const newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id)
+        let newUniqueCode = customCodes?.[itemId]
+        if (!newUniqueCode) {
+          newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id)
+        }
 
         // Update item's current_assignment_id, vessel_id, unique_code
         await supabaseAdmin
@@ -318,6 +323,90 @@ Deno.serve(async (req: Request) => {
       }
 
       return successResponse({ success: true, transferred: assignments.length, items: assignments })
+
+    } else if (action === 'preview' && vesselId && selectedIds) {
+      const assignments = []
+
+      // Fetch target vessel
+      const { data: targetVessel } = await supabaseAdmin
+        .from('vessels')
+        .select('bow_number')
+        .eq('id', vesselId)
+        .single()
+
+      if (!targetVessel) {
+        return errorResponse('Target vessel not found', 404)
+      }
+
+      const bowNumber = targetVessel.bow_number
+      const eqCounters = new Map<string, number>()
+
+      const getNextUniqueCodePreview = async (equipmentId: string): Promise<string> => {
+        const { data: eq } = await supabaseAdmin
+          .from('equipments')
+          .select('unique_code')
+          .eq('id', equipmentId)
+          .single()
+
+        let eqTypeCode = eq?.unique_code || 'XX'
+        if (eqTypeCode.length === 2) eqTypeCode += '01'
+
+        if (!eqCounters.has(equipmentId)) {
+          const { data: items } = await supabaseAdmin
+            .from('items')
+            .select('unique_code')
+            .eq('equipment_id', equipmentId)
+            .eq('vessel_id', vesselId)
+            .like('unique_code', `${eqTypeCode}-${bowNumber}-%`)
+            .order('unique_code', { ascending: false })
+            .limit(1)
+
+          let nextNumber = 1
+          if (items && items.length > 0 && items[0].unique_code) {
+            const parts = items[0].unique_code.split('-')
+            const lastNumber = parseInt(parts[parts.length - 1], 10)
+            if (!isNaN(lastNumber)) {
+              nextNumber = lastNumber + 1
+            }
+          }
+          eqCounters.set(equipmentId, nextNumber)
+        }
+
+        const currentNum = eqCounters.get(equipmentId)!
+        eqCounters.set(equipmentId, currentNum + 1)
+        const sequentialNumber = currentNum.toString().padStart(3, '0')
+
+        return `${eqTypeCode}-${bowNumber}-${sequentialNumber}`
+      }
+
+      for (const itemId of selectedIds) {
+        const { data: existingAssignment } = await supabaseAdmin
+          .from('vessel_item_assignments')
+          .select('id, vessel_id')
+          .eq('item_id', itemId)
+          .eq('is_current', true)
+          .single()
+
+        const { data: itemInfo } = await supabaseAdmin
+          .from('items')
+          .select('equipment_id, unique_code, nomenclature')
+          .eq('id', itemId)
+          .single()
+
+        if (!itemInfo) continue
+        if (existingAssignment && existingAssignment.vessel_id === vesselId) continue
+
+        const newUniqueCode = await getNextUniqueCodePreview(itemInfo.equipment_id)
+
+        assignments.push({
+          item_id: itemId,
+          nomenclature: itemInfo.nomenclature,
+          old_unique_code: itemInfo.unique_code,
+          new_unique_code: newUniqueCode
+        })
+      }
+
+      return successResponse({ success: true, items: assignments })
 
     } else if (action === 'delete') {
       if (!assignment_id) return errorResponse('assignment_id is required for delete', 400)

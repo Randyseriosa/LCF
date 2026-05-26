@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, FileSpreadsheet, Anchor, Box, Settings, LogOut, Shield } from 'lucide-react'
+import { LayoutDashboard, Users, FileSpreadsheet, Anchor, Box, Settings, LogOut, Shield, Archive } from 'lucide-react'
 import { signOut } from '@/lib/auth'
 import { ROLES, type Role } from '@/lib/types/roles'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
@@ -34,6 +34,7 @@ export function Sidebar({ role }: { role: Role }) {
                 { name: 'HLCF', href: '/admin/hlcf', icon: Box },
                 { name: 'Vessels', href: '/admin/vessels', icon: Anchor },
                 { name: 'Equipments', href: '/admin/equipments', icon: Box },
+                { name: 'Retired Items', href: '/admin/retired-items', icon: Archive },
                 { name: 'Settings', href: '/admin/settings', icon: Settings },
                 { name: 'Users', href: '/admin/users', icon: Users }
             )
@@ -52,6 +53,7 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Vessels', href: `/${role}/vessels`, icon: Anchor },
                 { name: 'Equipments', href: `/${role}/equipments`, icon: Box },
+                { name: 'Retired Items', href: `/${role}/retired-items`, icon: Archive },
                 { name: 'Settings', href: `/${role}/settings`, icon: Settings }
             )
             break
