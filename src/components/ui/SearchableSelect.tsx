@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown, Search, X } from 'lucide-react'
 
 export interface Option {
     label: string
@@ -71,7 +71,23 @@ export function SearchableSelect({
                 <span className="truncate">
                     {selectedOption ? selectedOption.label : <span className="text-foreground-muted">{placeholder}</span>}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-foreground-muted shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <div className="flex items-center gap-2 shrink-0">
+                    {value && !disabled && (
+                        <div
+                            role="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange('');
+                                setIsOpen(false);
+                            }}
+                            className="p-1 hover:bg-foreground/10 transition-colors"
+                            title="Clear selection"
+                        >
+                            <X className="w-3.5 h-3.5 text-foreground-muted hover:text-error transition-colors" />
+                        </div>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-foreground-muted shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
             </button>
 
             {isOpen && (

@@ -85,7 +85,7 @@ export function HistoryLogs() {
                                         {log.item?.nomenclature || 'Unknown'}
                                     </td>
                                     <td className="px-4 py-3 text-xs text-foreground-muted">
-                                        {log.old_vessel?.bow_number || 'Unknown'}
+                                        {log.old_vessel_id === null ? 'HQ' : log.old_vessel?.bow_number || 'Unknown'}
                                     </td>
                                     <td className="px-4 py-3 text-xs text-foreground font-medium">
                                         {log.new_vessel?.bow_number || 'Unknown'}

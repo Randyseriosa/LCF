@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 
-import { ChevronLeft, ChevronRight, Filter, FileText, Trash2, AlertTriangle } from 'lucide-react'
+import { Filter, FileText, Trash2, AlertTriangle } from 'lucide-react'
+import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { useClassesOfVessel, type ClassOfVessel } from '@/hooks/useClassesOfVessel'
 
 const MONTHS = [
@@ -24,23 +25,6 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
     const [isClearing, setIsClearing] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-    const goToPreviousMonth = () => {
-        if (selectedMonth === 0) {
-            setSelectedMonth(11)
-            setSelectedYear(selectedYear - 1)
-        } else {
-            setSelectedMonth(selectedMonth - 1)
-        }
-    }
-
-    const goToNextMonth = () => {
-        if (selectedMonth === 11) {
-            setSelectedMonth(0)
-            setSelectedYear(selectedYear + 1)
-        } else {
-            setSelectedMonth(selectedMonth + 1)
-        }
-    }
 
     const handleClearReports = async () => {
         setIsClearing(true)
@@ -76,47 +60,14 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
             <div className=" border border-foreground/5  bg-surface p-3 shadow-card">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     {/* Month/Year Selector */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={goToPreviousMonth}
-                            className="flex h-10 w-10 items-center justify-center border border-foreground/10 bg-surface hover:bg-foreground/5 transition-colors"
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            >
-                                {MONTHS.map((month, index) => (
-                                    <option key={month} value={index}>
-                                        {month}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            >
-                                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <button
-                            onClick={goToNextMonth}
-                            className="flex h-10 w-10 items-center justify-center border border-foreground/10 bg-surface hover:bg-foreground/5 transition-colors"
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    </div>
+                    <MonthYearPicker
+                        month={selectedMonth}
+                        year={selectedYear}
+                        onChange={(m, y) => {
+                            setSelectedMonth(m)
+                            setSelectedYear(y)
+                        }}
+                    />
 
                     {/* Class of Vessel Filter */}
                     <div className="flex items-center gap-2">

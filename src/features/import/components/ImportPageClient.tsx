@@ -894,7 +894,7 @@ export function ImportPageClient() {
               <button
                 onClick={handleImport}
                 disabled={isImporting || Boolean(syncCheckResults && (syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.mismatched.length > 0))}
-                className="flex-1 bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
+                className="w-fit mx-auto block bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
               >
                 {isImporting ? 'Importing...' : 'Confirm Import'}
               </button>

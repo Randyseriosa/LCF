@@ -30,6 +30,7 @@ export function MasterListTab() {
     const [items, setItems] = useState<Item[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [isClearing, setIsClearing] = useState(false)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
     const fetchItems = async () => {
@@ -52,6 +53,40 @@ export function MasterListTab() {
         }
     }
 
+    const handleClearAll = async () => {
+        if (!window.confirm('ARE YOU SURE YOU WANT TO CLEAR ALL HQ INVENTORY ITEMS? THIS ACTION CANNOT BE UNDONE.')) {
+            return
+        }
+
+        setIsClearing(true)
+        try {
+            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
+            const token = match ? decodeURIComponent(match[1]) : null
+            if (!token) throw new Error('Not authenticated')
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-all-items`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ filter: 'hq' })
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to clear items')
+            }
+
+            alert('HQ Inventory Masterlist cleared successfully')
+            fetchItems()
+        } catch (err: any) {
+            alert(`Error: ${err.message}`)
+        } finally {
+            setIsClearing(false)
+        }
+    }
+
     useEffect(() => {
         fetchItems()
     }, [])
@@ -60,12 +95,21 @@ export function MasterListTab() {
         <div className="flex flex-col space-y-4">
             <div className="flex justify-between items-center bg-surface border border-foreground/10 p-4">
                 <h2 className="text-[18px] font-semibold text-foreground uppercase tracking-widest">HQ Inventory Masterlist</h2>
-                <button
-                    onClick={() => setIsImportModalOpen(true)}
-                    className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors flex items-center gap-2"
-                >
-                    <Plus className="w-4 h-4" /> Import Items
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleClearAll}
+                        disabled={isClearing || items.length === 0}
+                        className="bg-error/10 hover:bg-error/20 text-error px-6 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/20 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isClearing ? 'Clearing...' : 'Clear All'}
+                    </button>
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" /> Import Masterlist
+                    </button>
+                </div>
             </div>
 
             <div className="bg-surface border border-foreground/10 overflow-hidden shadow-card p-4">
@@ -166,6 +210,8 @@ export function MasterListTab() {
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
                 isHqInventory={true}
+                title="Import Masterlist"
+                subtitle="Primary inventory source list"
                 onImportComplete={() => {
                     setIsImportModalOpen(false)
                     fetchItems()

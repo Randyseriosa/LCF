@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useVesselsWithReportStatus } from '@/hooks/useVesselsWithReportStatus'
 import { useClassesOfVessel } from '@/hooks/useClassesOfVessel'
 import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle } from 'lucide-react'
+import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 
 
 const MONTHS = [
@@ -103,32 +104,15 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     {/* Month/Year Selector */}
                     <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-foreground-muted">Report Period</label>
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            >
-                                {MONTHS.map((month, index) => (
-                                    <option key={month} value={index}>
-                                        {month}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            >
-                                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <label className="text-sm font-medium text-foreground-muted uppercase tracking-widest text-[10px]">Report Period</label>
+                        <MonthYearPicker
+                            month={selectedMonth}
+                            year={selectedYear}
+                            onChange={(m, y) => {
+                                setSelectedMonth(m)
+                                setSelectedYear(y)
+                            }}
+                        />
                     </div>
 
                     {/* Filters */}
@@ -216,7 +200,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Bow</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Classification of Vessel</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Submitted Status</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Status</th>
                                 </tr>
                             </thead>
                             <tbody>

@@ -198,26 +198,34 @@ Deno.serve(async (req: Request) => {
       }
 
       const bowNumber = targetVessel.bow_number
-      const eqCounters = new Map<string, number>()
+      // Counter keyed by the classification prefix (e.g. 'WE01') so each classification
+      // gets its own sequence scoped to the recipient vessel.
+      const prefixCounters = new Map<string, number>()
 
-      // Helper to get next sequence format for equipment on target vessel
-      const getNextUniqueCode = async (equipmentId: string): Promise<string> => {
-        // Fetch equipment unique code prefix
-        const { data: eq } = await supabaseAdmin
-          .from('equipments')
-          .select('unique_code')
-          .eq('id', equipmentId)
-          .single()
+      // Derive the next unique code for an item being transferred.
+      // Uses the source item's own unique_code prefix (e.g. 'WE01' from 'WE01-OLCF6-006')
+      // so the sequence is scoped by classification, not just by equipment.
+      const getNextUniqueCode = async (equipmentId: string, sourceUniqueCode: string): Promise<string> => {
+        // Extract the type prefix from the source code (first segment before '-')
+        let eqTypeCode = sourceUniqueCode ? sourceUniqueCode.split('-')[0] : ''
 
-        let eqTypeCode = eq?.unique_code || 'XX'
-        if (eqTypeCode.length === 2) eqTypeCode += '01'
+        // Fallback: derive from equipment base code
+        if (!eqTypeCode) {
+          const { data: eq } = await supabaseAdmin
+            .from('equipments')
+            .select('unique_code')
+            .eq('id', equipmentId)
+            .single()
+          eqTypeCode = eq?.unique_code || 'XX'
+          if (eqTypeCode.length === 2) eqTypeCode += '01'
+        }
 
-        if (!eqCounters.has(equipmentId)) {
-          // Find max sequence
+        const counterKey = eqTypeCode
+        if (!prefixCounters.has(counterKey)) {
+          // Find max sequence among recipient items with the same classification prefix
           const { data: items } = await supabaseAdmin
             .from('items')
             .select('unique_code')
-            .eq('equipment_id', equipmentId)
             .eq('vessel_id', vesselId)
             .like('unique_code', `${eqTypeCode}-${bowNumber}-%`)
             .order('unique_code', { ascending: false })
@@ -231,11 +239,11 @@ Deno.serve(async (req: Request) => {
               nextNumber = lastNumber + 1
             }
           }
-          eqCounters.set(equipmentId, nextNumber)
+          prefixCounters.set(counterKey, nextNumber)
         }
 
-        const currentNum = eqCounters.get(equipmentId)!
-        eqCounters.set(equipmentId, currentNum + 1)
+        const currentNum = prefixCounters.get(counterKey)!
+        prefixCounters.set(counterKey, currentNum + 1)
         const sequentialNumber = currentNum.toString().padStart(3, '0')
 
         return `${eqTypeCode}-${bowNumber}-${sequentialNumber}`
@@ -253,11 +261,14 @@ Deno.serve(async (req: Request) => {
         // Get item info
         const { data: itemInfo } = await supabaseAdmin
           .from('items')
-          .select('equipment_id, unique_code, vessel_id, nomenclature')
+          .select('id, equipment_id, unique_code, vessel_id, nomenclature')
           .eq('id', itemId)
           .single()
 
-        if (!itemInfo) continue
+        if (!itemInfo) {
+          console.error(`Item not found: ${itemId}`)
+          continue
+        }
 
         const oldVesselId = existingAssignment ? existingAssignment.vessel_id : itemInfo.vessel_id
         const oldUniqueCode = itemInfo.unique_code
@@ -289,7 +300,7 @@ Deno.serve(async (req: Request) => {
 
         let newUniqueCode = customCodes?.[itemId]
         if (!newUniqueCode) {
-          newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id)
+          newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id, itemInfo.unique_code)
         }
 
         // Update item's current_assignment_id, vessel_id, unique_code
@@ -311,7 +322,8 @@ Deno.serve(async (req: Request) => {
             new_vessel_id: vesselId,
             old_unique_code: oldUniqueCode,
             new_unique_code: newUniqueCode,
-            performed_by: (jwtPayload as any).sub
+            performed_by: jwtPayload.user_id,
+            action: 'Transferred'
           })
 
         assignments.push({
@@ -339,23 +351,31 @@ Deno.serve(async (req: Request) => {
       }
 
       const bowNumber = targetVessel.bow_number
-      const eqCounters = new Map<string, number>()
+      // Counter keyed by the classification prefix (e.g. 'WE01') so each classification
+      // gets its own sequence scoped to the recipient vessel.
+      const prefixCountersPreview = new Map<string, number>()
 
-      const getNextUniqueCodePreview = async (equipmentId: string): Promise<string> => {
-        const { data: eq } = await supabaseAdmin
-          .from('equipments')
-          .select('unique_code')
-          .eq('id', equipmentId)
-          .single()
+      const getNextUniqueCodePreview = async (equipmentId: string, sourceUniqueCode: string): Promise<string> => {
+        // Extract the type prefix from the source code (first segment before '-')
+        let eqTypeCode = sourceUniqueCode ? sourceUniqueCode.split('-')[0] : ''
 
-        let eqTypeCode = eq?.unique_code || 'XX'
-        if (eqTypeCode.length === 2) eqTypeCode += '01'
+        // Fallback: derive from equipment base code
+        if (!eqTypeCode) {
+          const { data: eq } = await supabaseAdmin
+            .from('equipments')
+            .select('unique_code')
+            .eq('id', equipmentId)
+            .single()
+          eqTypeCode = eq?.unique_code || 'XX'
+          if (eqTypeCode.length === 2) eqTypeCode += '01'
+        }
 
-        if (!eqCounters.has(equipmentId)) {
+        const counterKey = eqTypeCode
+        if (!prefixCountersPreview.has(counterKey)) {
+          // Find max sequence among recipient items with the same classification prefix
           const { data: items } = await supabaseAdmin
             .from('items')
             .select('unique_code')
-            .eq('equipment_id', equipmentId)
             .eq('vessel_id', vesselId)
             .like('unique_code', `${eqTypeCode}-${bowNumber}-%`)
             .order('unique_code', { ascending: false })
@@ -369,11 +389,11 @@ Deno.serve(async (req: Request) => {
               nextNumber = lastNumber + 1
             }
           }
-          eqCounters.set(equipmentId, nextNumber)
+          prefixCountersPreview.set(counterKey, nextNumber)
         }
 
-        const currentNum = eqCounters.get(equipmentId)!
-        eqCounters.set(equipmentId, currentNum + 1)
+        const currentNum = prefixCountersPreview.get(counterKey)!
+        prefixCountersPreview.set(counterKey, currentNum + 1)
         const sequentialNumber = currentNum.toString().padStart(3, '0')
 
         return `${eqTypeCode}-${bowNumber}-${sequentialNumber}`
@@ -396,7 +416,7 @@ Deno.serve(async (req: Request) => {
         if (!itemInfo) continue
         if (existingAssignment && existingAssignment.vessel_id === vesselId) continue
 
-        const newUniqueCode = await getNextUniqueCodePreview(itemInfo.equipment_id)
+        const newUniqueCode = await getNextUniqueCodePreview(itemInfo.equipment_id, itemInfo.unique_code)
 
         assignments.push({
           item_id: itemId,

@@ -20,7 +20,7 @@ interface ImportItem {
     ics: string
     par: string
     quantity: number | null
-    isDuplicate?: boolean
+    status?: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed'
 }
 
 interface ImportItemsModalProps {
@@ -31,6 +31,9 @@ interface ImportItemsModalProps {
     equipmentUniqueCode?: string
     onImportComplete: () => void
     isHqInventory?: boolean
+    isMonthlyReport?: boolean
+    title?: string
+    subtitle?: string
 }
 
 export function ImportItemsModal({
@@ -40,7 +43,10 @@ export function ImportItemsModal({
     equipmentName,
     equipmentUniqueCode,
     onImportComplete,
-    isHqInventory
+    isHqInventory,
+    isMonthlyReport,
+    title,
+    subtitle
 }: ImportItemsModalProps) {
     const [file, setFile] = useState<File | null>(null)
     const [parsedData, setParsedData] = useState<ImportItem[]>([])
@@ -327,26 +333,66 @@ export function ImportItemsModal({
             // Check for existing items in the database
             console.log('Checking for existing items...')
             const supabase = createClient()
-            const uniqueCodes = items.map(item => item.unique_code)
-            const { data: existingItems, error: fetchError } = await supabase
-                .from('items')
-                .select('unique_code')
-                .in('unique_code', uniqueCodes)
+
+            // If it's HQ inventory, we want all OLCF6 items to check for missed items
+            // Otherwise just check the ones in the file
+            let existingItemsQuery = supabase.from('items').select('*')
+
+            if (isHqInventory) {
+                existingItemsQuery = existingItemsQuery.ilike('unique_code', '%-OLCF6-%')
+            } else {
+                const uniqueCodes = items.map(item => item.unique_code)
+                existingItemsQuery = existingItemsQuery.in('unique_code', uniqueCodes)
+            }
+
+            const { data: existingItems, error: fetchError } = await existingItemsQuery
 
             if (fetchError) {
                 console.error('Error fetching existing items:', fetchError)
             }
 
-            const existingUniqueCodes = new Set(existingItems?.map(item => item.unique_code) || [])
-            console.log('Existing items count:', existingUniqueCodes.size)
+            const existingItemsMap = new Map(existingItems?.map(item => [item.unique_code, item]) || [])
+            console.log('Existing items count:', existingItemsMap.size)
 
-            // Mark duplicates
-            const itemsWithDuplicateStatus = items.map(item => ({
-                ...item,
-                isDuplicate: existingUniqueCodes.has(item.unique_code)
-            }))
+            // Mark statuses for items from file
+            const processedItems: ImportItem[] = items.map(item => {
+                const exists = existingItemsMap.has(item.unique_code)
+                let status: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed'
 
-            setParsedData(itemsWithDuplicateStatus)
+                if (exists) {
+                    status = 'duplicate'
+                } else {
+                    status = isMonthlyReport ? 'not_on_masterlist' : 'new'
+                }
+
+                return { ...item, status }
+            })
+
+            // If monthly report, identify missed items (in DB but not in File)
+            if (isMonthlyReport && existingItems) {
+                const fileUniqueCodes = new Set(items.map(i => i.unique_code))
+                const missedItems: ImportItem[] = existingItems
+                    .filter(dbItem => !fileUniqueCodes.has(dbItem.unique_code))
+                    .map(dbItem => ({
+                        unique_code: dbItem.unique_code,
+                        classification: dbItem.classification || '',
+                        nomenclature: dbItem.nomenclature || '',
+                        brand: dbItem.brand || '',
+                        model: dbItem.model || '',
+                        serial_number: dbItem.serial_number || '',
+                        part_number: dbItem.part_number || '',
+                        date_manufactured: dbItem.date_manufactured || '',
+                        date_installed_issued: dbItem.date_installed_issued || '',
+                        ics: dbItem.ics || '',
+                        par: dbItem.par || '',
+                        quantity: dbItem.quantity,
+                        status: 'missed'
+                    }))
+
+                processedItems.push(...missedItems)
+            }
+
+            setParsedData(processedItems)
             console.log('File processing completed successfully')
         } catch (err) {
             console.error('File processing error:', err)
@@ -411,8 +457,10 @@ export function ImportItemsModal({
                 return { ...item, equipment_id: equipment.id }
             })
 
-            // Remove isDuplicate property before sending to edge function
-            const itemsToImport = itemsWithEquipmentId.map(({ isDuplicate, ...item }) => item)
+            // Remove status property before sending to edge function
+            const itemsToImport = itemsWithEquipmentId
+                .filter(item => item.status !== 'duplicate' && item.status !== 'missed')
+                .map(({ status, ...item }) => item)
 
             console.log('Sending items to import:', itemsToImport.length)
 
@@ -467,9 +515,9 @@ export function ImportItemsModal({
             <div className="bg-surface max-w-4xl w-full shadow-popover border border-foreground/10 max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-3 border-b border-foreground/10">
                     <div>
-                        <h3 className="font-semibold text-[20px] text-foreground">Import Items</h3>
+                        <h3 className="font-semibold text-[20px] text-foreground">{title || 'Import Items'}</h3>
                         <p className="text-sm text-foreground-muted mt-1">
-                            {equipmentName ? `Equipment: ${equipmentName}` : 'Auto-categorize by Unique Code'}
+                            {subtitle || (equipmentName ? `Equipment: ${equipmentName}` : 'Auto-categorize by Unique Code')}
                         </p>
                     </div>
                     <button onClick={onClose} className="text-foreground-muted hover:text-foreground transition-colors p-1 hover:bg-foreground/5">
@@ -553,12 +601,26 @@ export function ImportItemsModal({
                                 <div className="flex items-center gap-4 text-sm">
                                     <div className="flex items-center gap-2 text-foreground-muted">
                                         <Check className="w-4 h-4 text-secondary" />
-                                        {parsedData.length} items ready to import
+                                        {isMonthlyReport
+                                            ? `${parsedData.filter(item => item.status === 'duplicate').length} synced items`
+                                            : `${parsedData.filter(item => item.status === 'new').length} items ready to import`}
                                     </div>
-                                    {parsedData.some(item => item.isDuplicate) && (
+                                    {parsedData.some(item => item.status === 'duplicate') && !isMonthlyReport && (
                                         <div className="flex items-center gap-2 text-foreground-muted">
                                             <AlertCircle className="w-4 h-4 text-error" />
-                                            {parsedData.filter(item => item.isDuplicate).length} duplicates will be skipped
+                                            {parsedData.filter(item => item.status === 'duplicate').length} items exist and will be skipped
+                                        </div>
+                                    )}
+                                    {parsedData.some(item => item.status === 'not_on_masterlist') && (
+                                        <div className="flex items-center gap-2 text-foreground-muted">
+                                            <AlertCircle className="w-4 h-4 text-error" />
+                                            {parsedData.filter(item => item.status === 'not_on_masterlist').length} not on masterlist
+                                        </div>
+                                    )}
+                                    {parsedData.some(item => item.status === 'missed') && (
+                                        <div className="flex items-center gap-2 text-foreground-muted">
+                                            <AlertCircle className="w-4 h-4 text-error" />
+                                            {parsedData.filter(item => item.status === 'missed').length} missed from masterlist
                                         </div>
                                     )}
                                 </div>
@@ -645,15 +707,33 @@ export function ImportItemsModal({
                                                     </thead>
                                                     <tbody className="divide-y divide-foreground/10">
                                                         {groupedItems[equipmentCode].map((item, index) => (
-                                                            <tr key={index} className={`hover:bg-foreground/3 ${item.isDuplicate ? 'bg-error-bg/30' : ''}`}>
+                                                            <tr key={index} className={`hover:bg-foreground/3 ${item.status === 'duplicate' ? 'bg-error-bg/30' : item.status === 'missed' ? 'bg-error-bg/10' : ''}`}>
                                                                 <td className="px-3 py-3 text-sm whitespace-nowrap">
-                                                                    {item.isDuplicate ? (
+                                                                    {item.status === 'duplicate' ? (
+                                                                        isMonthlyReport ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
+                                                                                Synced
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
+                                                                                Duplicate
+                                                                            </span>
+                                                                        )
+                                                                    ) : item.status === 'new' ? (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
+                                                                            New
+                                                                        </span>
+                                                                    ) : item.status === 'not_on_masterlist' ? (
                                                                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
-                                                                            Duplicate
+                                                                            Not on Masterlist
+                                                                        </span>
+                                                                    ) : item.status === 'missed' ? (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
+                                                                            Missed Item
                                                                         </span>
                                                                     ) : (
                                                                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
-                                                                            New
+                                                                            -
                                                                         </span>
                                                                     )}
                                                                 </td>
@@ -693,24 +773,32 @@ export function ImportItemsModal({
                 </div>
 
                 {parsedData.length > 0 && (
-                    <div className="p-3 border-t border-foreground/10 flex justify-end gap-3">
-                        <button
-                            onClick={onClose}
-                            disabled={isImporting}
-                            className="px-4 py-2.5 text-foreground-muted hover:bg-foreground/5 transition-colors text-sm font-medium disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleImport}
-                            disabled={isImporting}
-                            className="px-6 py-2.5 bg-accent text-white hover:bg-secondary-hover disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
-                        >
-                            {isImporting ? 'Importing...' : 'Confirm Import'}
-                        </button>
+                    <div className="p-3 border-t border-foreground/10 flex flex-col gap-2">
+                        {isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed') && (
+                            <div className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-widest bg-error-bg/10 p-2 mb-1">
+                                <AlertCircle className="w-4 h-4" />
+                                Import blocked: Resolve discrepancies before synchronization
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={onClose}
+                                disabled={isImporting}
+                                className="px-4 py-2.5 text-foreground-muted hover:bg-foreground/5 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleImport}
+                                disabled={isImporting || (isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed'))}
+                                className="px-6 py-2.5 bg-accent text-white hover:bg-secondary-hover disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
+                            >
+                                {isImporting ? 'Importing...' : 'Confirm Import'}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }

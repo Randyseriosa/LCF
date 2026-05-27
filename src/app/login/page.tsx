@@ -145,7 +145,7 @@ export default function LoginPage() {
                             className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-accent border border-accent/60 text-white font-bold text-xs py-3 px-4 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
                         >
                             {loading && (
-                                <Loader2 size={14} className="animate-spin" />
+                                <Loader2 size={14} className="animate-spin rounded-full" />
                             )}
                             {loading ? 'Authenticating...' : 'Sign In'}
                         </button>

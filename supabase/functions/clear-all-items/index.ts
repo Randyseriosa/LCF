@@ -29,34 +29,85 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Forbidden: Active admin or encoder role required', 403)
     }
 
+    const body = await req.json().catch(() => ({}))
+    const { filter } = body
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Delete all vessel_item_assignments first (due to foreign key constraint)
-    const { error: assignmentsError } = await supabaseAdmin
-      .from('vessel_item_assignments')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+    let message = 'All items and assignments cleared successfully'
 
-    if (assignmentsError) {
-      console.error('Error deleting vessel_item_assignments:', assignmentsError)
-      return errorResponse(`Failed to delete vessel_item_assignments: ${assignmentsError.message}`, 500)
+    if (filter === 'hq') {
+      const hqPattern = '%-OLCF6-%'
+
+      // Get IDs of HQ items first
+      const { data: hqItems, error: fetchError } = await supabaseAdmin
+        .from('items')
+        .select('id')
+        .ilike('unique_code', hqPattern)
+
+      if (fetchError) {
+        console.error('Error fetching HQ items:', fetchError)
+        return errorResponse(`Failed to fetch HQ items: ${fetchError.message}`, 500)
+      }
+
+      if (hqItems && hqItems.length > 0) {
+        const hqItemIds = hqItems.map((item: { id: string }) => item.id)
+
+        // Delete assignments for HQ items
+        const { error: assignmentsError } = await supabaseAdmin
+          .from('vessel_item_assignments')
+          .delete()
+          .in('item_id', hqItemIds)
+
+        if (assignmentsError) {
+          console.error('Error deleting HQ vessel_item_assignments:', assignmentsError)
+          return errorResponse(`Failed to delete HQ vessel_item_assignments: ${assignmentsError.message}`, 500)
+        }
+
+        // Delete HQ items
+        const { error: itemsError } = await supabaseAdmin
+          .from('items')
+          .delete()
+          .in('id', hqItemIds)
+
+        if (itemsError) {
+          console.error('Error deleting HQ items:', itemsError)
+          return errorResponse(`Failed to delete HQ items: ${itemsError.message}`, 500)
+        }
+
+        message = `Successfully cleared ${hqItems.length} HQ items and their assignments`
+      } else {
+        message = 'No HQ items found to clear'
+      }
+    } else {
+      // Original "Clear All" behavior
+      // Delete all vessel_item_assignments first
+      const { error: assignmentsError } = await supabaseAdmin
+        .from('vessel_item_assignments')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+
+      if (assignmentsError) {
+        console.error('Error deleting vessel_item_assignments:', assignmentsError)
+        return errorResponse(`Failed to delete vessel_item_assignments: ${assignmentsError.message}`, 500)
+      }
+
+      // Delete all items
+      const { error: itemsError } = await supabaseAdmin
+        .from('items')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+
+      if (itemsError) {
+        console.error('Error deleting items:', itemsError)
+        return errorResponse(`Failed to delete items: ${itemsError.message}`, 500)
+      }
     }
 
-    // Delete all items
-    const { error: itemsError } = await supabaseAdmin
-      .from('items')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
-
-    if (itemsError) {
-      console.error('Error deleting items:', itemsError)
-      return errorResponse(`Failed to delete items: ${itemsError.message}`, 500)
-    }
-
-    return successResponse({ message: 'All items and assignments cleared successfully' })
+    return successResponse({ message })
   } catch (err) {
     console.error('Unexpected error:', err)
     return errorResponse('Internal server error', 500)

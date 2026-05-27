@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, ArrowRight, Search, ChevronDown, X } from 'lucide-react'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getAccessToken } from '@/lib/auth'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface Vessel {
@@ -63,24 +63,41 @@ export function BowInventoryTransfer() {
             return
         }
         setLoadingItems(true)
-        const { data } = await supabase
-            .from('vessel_item_assignments')
-            .select('id, items!item_id(id, unique_code, nomenclature, classification)')
-            .eq('vessel_id', vId)
-            .eq('is_current', true)
 
-        if (data) {
-            // Data shape is { id: string, items: object | object[] } based on the join
-            // items should be a single object since it's a many-to-one relationship from assignment to item
-            const mapped = data
-                .filter(d => d.items)
-                .map(d => ({
-                    assignment_id: d.id,
-                    item: Array.isArray(d.items) ? d.items[0] : d.items
-                })) as AssignedItem[]
+        let mapped: AssignedItem[] = []
 
-            setSourceItems(mapped)
+        if (vId === 'hq') {
+            // Fetch items that are NOT assigned to any vessel OR specifically HQ items
+            // Based on MasterListTab, HQ items have '-OLCF6-' in their unique code
+            const { data } = await supabase
+                .from('items')
+                .select('id, unique_code, nomenclature, classification')
+                .ilike('unique_code', '%-OLCF6-%')
+
+            if (data) {
+                mapped = data.map(item => ({
+                    assignment_id: 'hq', // Plastic ID since it's not from assignments table
+                    item: item
+                }))
+            }
+        } else {
+            const { data } = await supabase
+                .from('vessel_item_assignments')
+                .select('id, items!item_id(id, unique_code, nomenclature, classification)')
+                .eq('vessel_id', vId)
+                .eq('is_current', true)
+
+            if (data) {
+                mapped = data
+                    .filter(d => d.items)
+                    .map(d => ({
+                        assignment_id: d.id,
+                        item: Array.isArray(d.items) ? d.items[0] : d.items
+                    })) as AssignedItem[]
+            }
         }
+
+        setSourceItems(mapped)
         setLoadingItems(false)
         setSelectedItemIds(new Set())
         if (vId) setIsItemsDropdownOpen(true)
@@ -230,12 +247,15 @@ export function BowInventoryTransfer() {
         <div className="flex flex-col md:flex-row gap-6 w-full items-start">
             {/* LEFT COLUMN: Source */}
             <div className="flex-1 bg-surface border border-foreground/5 shadow-card p-4 h-[500px] flex flex-col">
-                <h3 className="text-foreground font-semibold text-[16px] mb-4 uppercase tracking-widest">Source Bow</h3>
+                <h3 className="text-foreground font-semibold text-[16px] mb-4 uppercase tracking-widest">Source</h3>
                 <SearchableSelect
                     value={sourceVesselId}
                     onChange={(val) => setSourceVesselId(val)}
-                    placeholder="-- Select Source Bow Number --"
-                    options={vessels.map(v => ({ value: v.id, label: v.bow_number || 'Unnamed' }))}
+                    placeholder="-- Select Source --"
+                    options={[
+                        { value: 'hq', label: 'HQ INVENTORY' },
+                        ...vessels.map(v => ({ value: v.id, label: v.bow_number || 'Unnamed' }))
+                    ]}
                     className="mb-4"
                 />
 
@@ -244,10 +264,13 @@ export function BowInventoryTransfer() {
                         <button
                             type="button"
                             onClick={() => setIsItemsDropdownOpen(!isItemsDropdownOpen)}
-                            className="w-full flex items-center justify-between p-3 border border-foreground/10 bg-background text-xs font-semibold uppercase tracking-widest text-foreground hover:bg-foreground/5 transition-colors focus:outline-none"
+                            className={`w-full flex items-center justify-between p-3 border text-xs font-semibold uppercase tracking-widest transition-all duration-200 focus:outline-none ${isItemsDropdownOpen
+                                ? 'bg-foreground/[0.08] border-foreground/30 border-l-4 border-l-primary text-foreground shadow-sm'
+                                : 'bg-background border-foreground/10 text-foreground hover:bg-foreground/5 hover:border-foreground/20'
+                                }`}
                         >
                             <span>{isItemsDropdownOpen ? 'Hide Items Search' : `Select Items (${sourceItems.length} available)`}</span>
-                            <ChevronDown className={`w-4 h-4 text-foreground-muted transition-transform ${isItemsDropdownOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isItemsDropdownOpen ? 'rotate-180 text-foreground' : 'text-foreground-muted'}`} />
                         </button>
                     </div>
                 )}
@@ -258,10 +281,10 @@ export function BowInventoryTransfer() {
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
                             <input
                                 type="text"
-                                placeholder="Search items by code or name..."
+                                placeholder="Search items by code, classification or nomenclature..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-8 pr-3 py-1.5 border border-foreground/10 bg-background text-xs text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                                className="w-full pl-8 pr-3 py-1.5 border border-foreground/10 bg-background text-xs text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                             />
                         </div>
                         <div className="flex-1 overflow-auto bg-surface">
@@ -273,11 +296,12 @@ export function BowInventoryTransfer() {
                                                 type="checkbox"
                                                 checked={isAllFilteredSelected}
                                                 onChange={handleSelectAll}
-                                                className="w-4 h-4 rounded border-foreground/20 cursor-pointer"
+                                                className="w-4 h-4 rounded-none border-foreground/20 cursor-pointer accent-primary"
                                             />
                                         </th>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-foreground">Code</th>
-                                        <th className="px-3 py-2 text-left text-xs font-semibold text-foreground">Name</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-foreground">Classification</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-foreground">Nomenclature</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -289,16 +313,17 @@ export function BowInventoryTransfer() {
                                                         type="checkbox"
                                                         checked={selectedItemIds.has(si.item.id)}
                                                         onChange={() => handleToggleSelect(si.item.id)}
-                                                        className="w-4 h-4 rounded border-foreground/20 cursor-pointer"
+                                                        className="w-4 h-4 rounded-none border-foreground/20 cursor-pointer accent-primary"
                                                     />
                                                 </td>
                                                 <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{si.item.unique_code || '-'}</td>
+                                                <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{si.item.classification || '-'}</td>
                                                 <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap truncate max-w-[150px]">{si.item.nomenclature || '-'}</td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={3} className="text-center py-8 text-sm text-foreground-muted uppercase tracking-widest">
+                                            <td colSpan={4} className="text-center py-8 text-sm text-foreground-muted uppercase tracking-widest">
                                                 No matches found
                                             </td>
                                         </tr>
@@ -314,7 +339,7 @@ export function BowInventoryTransfer() {
                         </div>
                     ) : sourceItems.length === 0 ? (
                         <div className="flex-1 border border-foreground/10 bg-background relative flex items-center justify-center text-center py-8 text-sm text-foreground-muted uppercase tracking-widest">
-                            No items in this bow
+                            No items in this source
                         </div>
                     ) : (
                         selectedItemIds.size > 0 ? (
@@ -349,7 +374,7 @@ export function BowInventoryTransfer() {
                 ) : (
                     <div className="flex-1 overflow-auto border border-foreground/10 bg-background relative flex items-center justify-center">
                         <div className="text-center py-8 text-sm text-foreground-muted uppercase tracking-widest">
-                            Select a bow to view items
+                            Select a source to view items
                         </div>
                     </div>
                 )}

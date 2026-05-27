@@ -79,6 +79,14 @@
   border-radius: 0px !important;
 }
 
+/* Force round override */
+.rounded-full,
+svg.rounded-full,
+div.rounded-full,
+span.rounded-full {
+  border-radius: 9999px !important;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
