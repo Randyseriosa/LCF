@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useVesselsWithReportStatus } from '@/hooks/useVesselsWithReportStatus'
 import { useClassesOfVessel } from '@/hooks/useClassesOfVessel'
-import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText } from 'lucide-react'
+import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText, Search, X } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 
@@ -98,52 +98,79 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
     // Determine if we should show grouped view (when no specific class is selected)
     const showGroupedView = !selectedClass
 
+    const hasAnyFilter = selectedClass || bowNumberFilter || submittedStatus !== 'all'
+    const activeFilterCount = (selectedClass ? 1 : 0) + (bowNumberFilter ? 1 : 0) + (submittedStatus !== 'all' ? 1 : 0)
+
+    const [hasAction, setHasAction] = useState(false)
+
+    const handleShowAll = () => {
+        setHasAction(true)
+        setSelectedClass(null)
+        setBowNumberFilter('')
+        setSubmittedStatus('all')
+    }
+
+    const clearAllFilters = () => {
+        setSelectedClass(null)
+        setBowNumberFilter('')
+        setSubmittedStatus('all')
+        setHasAction(true)
+    }
+
+    const selectClass = 'w-full px-3 py-2 border border-foreground/10 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all'
+
+
+
     return (
         <div className="space-y-6">
-            {/* Header with Filters */}
-            <div className=" border border-foreground/5  bg-surface p-3 shadow-card">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    {/* Month/Year Selector */}
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-foreground-muted uppercase tracking-widest text-[10px]">Report Period</label>
-                        <MonthYearPicker
-                            month={selectedMonth}
-                            year={selectedYear}
-                            onChange={(m, y) => {
-                                setSelectedMonth(m)
-                                setSelectedYear(y)
-                            }}
-                        />
-                    </div>
-
-                    {/* Filters */}
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-foreground-muted flex items-center gap-2">
-                                <Filter className="w-4 h-4" />
-                                Bow
-                            </label>
-                            <input
-                                type="text"
-                                value={bowNumberFilter}
-                                onChange={(e) => setBowNumberFilter(e.target.value)}
-                                placeholder="Search bow number..."
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            <div className="bg-surface shadow-card border border-foreground/10 overflow-hidden">
+                {/* ── Search Toolbar ── */}
+                <div className="p-3">
+                    <div className="flex flex-col lg:flex-row items-end gap-3 translate-y-[-1px]">
+                        {/* Month/Year Selector */}
+                        <div className="shrink-0 w-full lg:w-auto">
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-1.5 block">Report Period</label>
+                            <MonthYearPicker
+                                month={selectedMonth}
+                                year={selectedYear}
+                                onChange={(m, y) => {
+                                    setSelectedMonth(m)
+                                    setSelectedYear(y)
+                                }}
                             />
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-foreground-muted flex items-center gap-2">
-                                <Filter className="w-4 h-4" />
-                                Classification
-                            </label>
+                        {/* Search Bow Number */}
+                        <div className="w-full lg:flex-1 shrink-0">
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-1.5 block">Bow Number</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={bowNumberFilter}
+                                    onChange={(e) => {
+                                        setBowNumberFilter(e.target.value)
+                                        if (e.target.value) setHasAction(true)
+                                    }}
+                                    className="w-full pl-9 pr-4 py-2 border border-foreground/10 bg-background text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm h-11"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Classification Filter */}
+                        <div className="w-full lg:flex-1 shrink-0">
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-1.5 block">Classification</label>
                             <select
                                 value={selectedClass || ''}
-                                onChange={(e) => setSelectedClass(e.target.value || null)}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                onChange={(e) => {
+                                    setSelectedClass(e.target.value || null)
+                                    setHasAction(true)
+                                }}
+                                className={`${selectClass} h-11`}
                                 disabled={loadingClasses}
                             >
-                                <option value="">All Classes</option>
+                                <option value="">Select Classification...</option>
                                 {classesOfVessel.map((cls) => (
                                     <option key={cls.id} value={cls.id}>
                                         {cls.name}
@@ -152,153 +179,200 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                             </select>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-foreground-muted flex items-center gap-2">
-                                <Filter className="w-4 h-4" />
-                                Status
-                            </label>
+                        {/* Status Filter */}
+                        <div className="w-full lg:flex-1 shrink-0">
+                            <label className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-1.5 block">Status</label>
                             <select
                                 value={submittedStatus}
-                                onChange={(e) => setSubmittedStatus(e.target.value as 'submitted' | 'not-submitted' | 'all')}
-                                className=" border border-foreground/10 bg-surface px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                onChange={(e) => {
+                                    setSubmittedStatus(e.target.value as 'submitted' | 'not-submitted' | 'all')
+                                    setHasAction(true)
+                                }}
+                                className={`${selectClass} h-11`}
                             >
                                 <option value="all">All Statuses</option>
                                 <option value="submitted">Submitted</option>
                                 <option value="not-submitted">Not Submitted</option>
                             </select>
                         </div>
+
+                        {/* Clear Button */}
+                        {hasAnyFilter && (
+                            <div className="shrink-0 h-11">
+                                <button
+                                    onClick={clearAllFilters}
+                                    className="flex items-center gap-1.5 px-4 h-full text-error hover:bg-error-bg transition-all text-sm font-bold uppercase tracking-wider border border-transparent hover:border-error/20"
+                                >
+                                    <X className="w-4 h-4" />
+                                    Clear
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
 
-            {/* Loading State */}
-            {loading && (
-                <div className=" border border-foreground/5  bg-surface p-3 shadow-card text-center">
-                    <div className="text-foreground-muted">Loading vessels...</div>
-                </div>
-            )}
+                {/* ── Table Section ── */}
+                <div className="border-t border-foreground/10">
 
-            {/* Error State */}
-            {error && (
-                <div className=" border border-error/30 bg-error-bg p-3 shadow-card">
-                    <div className="text-error">{error}</div>
-                </div>
-            )}
+                    {loading && (
+                        <div className="px-5 py-8 text-center text-foreground-muted text-sm">
+                            Loading vessels...
+                        </div>
+                    )}
 
-            {/* Empty State */}
-            {!loading && !error && vessels.length === 0 && (
-                <div className=" border border-foreground/5  bg-surface p-3 shadow-card text-center">
-                    <div className="text-foreground-muted">No vessels found matching the filters.</div>
-                </div>
-            )}
+                    {error && (
+                        <div className="px-5 py-4 text-error text-sm">
+                            {error}
+                        </div>
+                    )}
 
-            {/* Vessels Table */}
-            {!loading && !error && vessels.length > 0 && (
-                <div className=" border border-foreground/5  bg-surface shadow-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-foreground/5">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Bow</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Classification of Vessel</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground whitespace-nowrap">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {showGroupedView ? (
-                                    // Grouped view by class
-                                    classGroups.map((group) => (
-                                        <React.Fragment key={group.id}>
+                    {!loading && !error && vessels.length === 0 && hasAction && (
+                        <div className="px-5 py-10 text-center">
+                            <FileText className="w-8 h-8 text-foreground-muted mx-auto mb-3" />
+                            <p className="text-foreground-muted text-sm">No vessels found matching the filters.</p>
+                            {hasAnyFilter && (
+                                <button onClick={clearAllFilters} className="mt-3 text-sm text-primary hover:underline font-bold uppercase tracking-wider">
+                                    Clear filters to see all vessels
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {!loading && !error && vessels.length > 0 && (
+                        <div className="overflow-x-auto">
+                            <table className="w-full table-fixed">
+                                <thead className="bg-foreground/5 border-b border-foreground/10">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap">Bow</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap w-80">Classification of Vessel</th>
+                                        <th className="px-6 py-4 text-right text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap w-40">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {!hasAction && (
+                                        <tr>
+                                            <td colSpan={3} className="px-6 py-8 text-center bg-foreground/[0.01]">
+                                                <button
+                                                    onClick={handleShowAll}
+                                                    className="inline-flex items-center px-8 py-3 bg-primary text-white hover:bg-primary/90 transition-all shadow-lg text-[11px] font-black uppercase tracking-[0.2em]"
+                                                >
+                                                    Show All
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {hasAction && (showGroupedView ? (
+                                        // Grouped view by class
+                                        classGroups.map((group) => (
+                                            <React.Fragment key={group.id}>
+                                                <tr
+                                                    className="border-b border-foreground/5 cursor-pointer hover:bg-foreground/5"
+                                                    onClick={() => toggleClassExpansion(group.id)}
+                                                >
+                                                    <td colSpan={3} className="px-6 py-3 whitespace-nowrap bg-foreground/[0.02]">
+                                                        <div className="flex items-center gap-2">
+                                                            {expandedClasses.has(group.id) ? (
+                                                                <ChevronDown className="w-4 h-4 text-primary" />
+                                                            ) : (
+                                                                <ChevronRight className="w-4 h-4 text-primary" />
+                                                            )}
+                                                            <span className="font-bold text-foreground uppercase tracking-widest text-[11px]">{group.name}</span>
+                                                            <span className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">({group.vessels.length} Vessel{group.vessels.length !== 1 ? 's' : ''})</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {expandedClasses.has(group.id) && group.vessels.map((vessel, vIndex) => (
+                                                    <tr
+                                                        key={vessel.id}
+                                                        className={`hover:bg-foreground/[0.01] transition-colors ${vIndex === group.vessels.length - 1 ? 'border-b border-foreground/10' : 'border-b border-foreground/5'}`}
+                                                    >
+                                                        <td className="px-6 py-4 text-xs whitespace-nowrap pl-12">
+                                                            {vessel.bow_number ? (
+                                                                <Link
+                                                                    href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
+                                                                    className="text-primary hover:text-primary/70 transition-colors font-bold uppercase tracking-widest flex items-center gap-2 group"
+                                                                >
+                                                                    {vessel.bow_number}
+                                                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                                                </Link>
+                                                            ) : (
+                                                                <span className="text-foreground-muted font-bold uppercase tracking-widest">N/A</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-xs whitespace-nowrap w-80">
+                                                            <span className="text-foreground font-medium uppercase tracking-wider text-[11px]">{vessel.class_of_vessel?.name || 'N/A'}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-xs whitespace-nowrap text-right w-40">
+                                                            <div className="flex items-center justify-end">
+                                                                {vessel.submitted ? (
+                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-none">
+                                                                        <CheckCircle className="w-3.5 h-3.5" />
+                                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Submitted</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-foreground/5 border border-foreground/10 text-foreground-muted rounded-none">
+                                                                        <XCircle className="w-3.5 h-3.5" />
+                                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Pending</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ))
+                                    ) : (
+                                        // Flat view when class is filtered
+                                        vessels.map((vessel, vIndex) => (
                                             <tr
-                                                className="border-t border-foreground/5 cursor-pointer hover:bg-foreground/5"
-                                                onClick={() => toggleClassExpansion(group.id)}
+                                                key={vessel.id}
+                                                className={`hover:bg-foreground/[0.01] transition-colors ${vIndex === vessels.length - 1 ? 'border-b border-foreground/10' : 'border-b border-foreground/5'}`}
                                             >
-                                                <td colSpan={3} className="px-4 py-2 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        {expandedClasses.has(group.id) ? (
-                                                            <ChevronDown className="w-4 h-4 text-foreground-muted" />
+                                                <td className="px-6 py-4 text-xs whitespace-nowrap">
+                                                    {vessel.bow_number ? (
+                                                        <Link
+                                                            href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
+                                                            className="text-primary hover:text-primary/70 transition-colors font-bold uppercase tracking-widest flex items-center gap-2 group"
+                                                        >
+                                                            {vessel.bow_number}
+                                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="text-foreground-muted font-bold uppercase tracking-widest">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-xs whitespace-nowrap w-80">
+                                                    <span className="text-foreground font-medium uppercase tracking-wider text-[11px]">{vessel.class_of_vessel?.name || 'N/A'}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs whitespace-nowrap text-right w-40">
+                                                    <div className="flex items-center justify-end">
+                                                        {vessel.submitted ? (
+                                                            <div className="flex items-center gap-2 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-none">
+                                                                <CheckCircle className="w-3.5 h-3.5" />
+                                                                <span className="text-[10px] font-bold uppercase tracking-widest">Submitted</span>
+                                                            </div>
                                                         ) : (
-                                                            <ChevronRight className="w-4 h-4 text-foreground-muted" />
+                                                            <div className="flex items-center gap-2 px-3 py-1 bg-foreground/5 border border-foreground/10 text-foreground-muted rounded-none">
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                <span className="text-[10px] font-bold uppercase tracking-widest">Pending</span>
+                                                            </div>
                                                         )}
-                                                        <span className="font-medium text-foreground">{group.name}</span>
-                                                        <span className="text-sm text-foreground-muted">({group.vessels.length})</span>
                                                     </div>
                                                 </td>
                                             </tr>
-                                            {expandedClasses.has(group.id) && group.vessels.map((vessel) => (
-                                                <tr key={vessel.id} className="border-t border-foreground/5">
-                                                    <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                        {vessel.bow_number ? (
-                                                            <Link
-                                                                href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
-                                                                className="text-foreground hover:text-secondary transition-colors font-medium"
-                                                            >
-                                                                {vessel.bow_number}
-                                                            </Link>
-                                                        ) : (
-                                                            <span className="text-foreground">N/A</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                        <span className="text-foreground-muted">{vessel.class_of_vessel?.name || 'N/A'}</span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                        {vessel.submitted ? (
-                                                            <div className="flex items-center gap-2 text-success">
-                                                                <CheckCircle className="w-4 h-4" />
-                                                                <span className="text-sm">Submitted</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2 text-foreground-muted">
-                                                                <XCircle className="w-4 h-4" />
-                                                                <span className="text-sm">Not Submitted</span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </React.Fragment>
-                                    ))
-                                ) : (
-                                    // Flat view when class is filtered
-                                    vessels.map((vessel) => (
-                                        <tr key={vessel.id} className="border-t border-foreground/5">
-                                            <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                {vessel.bow_number ? (
-                                                    <Link
-                                                        href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
-                                                        className="text-foreground hover:text-secondary transition-colors font-medium"
-                                                    >
-                                                        {vessel.bow_number}
-                                                    </Link>
-                                                ) : (
-                                                    <span className="text-foreground">N/A</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                <span className="text-foreground-muted">{vessel.class_of_vessel?.name || 'N/A'}</span>
-                                            </td>
-                                            <td className="px-4 py-2 text-xs whitespace-nowrap">
-                                                {vessel.submitted ? (
-                                                    <div className="flex items-center gap-2 text-success">
-                                                        <CheckCircle className="w-4 h-4" />
-                                                        <span className="text-sm">Submitted</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-2 text-foreground-muted">
-                                                        <XCircle className="w-4 h-4" />
-                                                        <span className="text-sm">Not Submitted</span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                        ))
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="px-6 py-4 bg-foreground/[0.02] border-t border-foreground/10">
+                                <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">
+                                    Total Vessels: {vessels.length}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
 
             {/* Confirmation Dialog */}
             {showConfirmDialog && (
