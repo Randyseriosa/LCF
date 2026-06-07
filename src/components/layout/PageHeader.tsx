@@ -17,7 +17,6 @@ interface PageHeaderProps {
     /** Optional banner image URL to use as header background (right-side decorative) */
     bannerImage?: string
 }
-
 /**
  * A unified header component for all pages in the Anchor Point Inventory System.
  * Matches the tactical, naval maritime aesthetic with sharp edges and deep navy accents.
@@ -30,14 +29,13 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
             {/* Banner photo — full bleed behind the header, visible on the right */}
             {hasBanner && (
                 <div
-                    className="absolute inset-0 bg-cover bg-right bg-no-repeat"
+                    className="absolute inset-0 bg-cover bg-right bg-no-repeat z-0"
                     style={{ backgroundImage: `url(${bannerImage})` }}
                     aria-hidden="true"
                 />
             )}
-
-            {/* White content panel — covers the left portion to keep text readable */}
-            <div className={`relative flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 md:p-10 border-b border-gray-100 ${hasBanner ? 'bg-white/90' : 'bg-white'}`}>
+            {/* Content panel — now with transparent background when banner is present */}
+            <div className={`relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 md:p-10 border-b border-gray-100 ${hasBanner ? 'bg-transparent' : 'bg-white'}`}>
                 <div className="flex items-center gap-4">
                     {onBack ? (
                         <button
