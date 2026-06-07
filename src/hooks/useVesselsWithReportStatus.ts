@@ -40,7 +40,7 @@ export function useVesselsWithReportStatus({
         setLoading(true)
         setError(null)
         try {
-            // Build the base query
+            // Build the base query - exclude system vessels like HQ Inventory
             let query = supabase
                 .from('vessels')
                 .select(`
@@ -52,6 +52,7 @@ export function useVesselsWithReportStatus({
                         name
                     )
                 `)
+                .neq('slug', 'hq-inventory')
                 .order('class_of_vessel(name)', { ascending: true, nullsFirst: false })
                 .order('bow_number', { ascending: true })
 

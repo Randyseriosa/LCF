@@ -202,15 +202,6 @@ export function BowEquipmentPageClient({ slug, role }: { slug: string; role: Rol
 
                                         return (
                                             <div className="flex flex-col flex-1 min-h-0">
-                                                <div className="mb-4">
-                                                    <p className="text-[11px] font-black uppercase tracking-[0.25em] text-primary leading-none mb-1">
-                                                        Equipment Category
-                                                    </p>
-                                                    <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-tight">
-                                                        {groupLabel}
-                                                    </h2>
-                                                </div>
-
                                                 <h3 className="text-md font-semibold text-foreground mb-4 shrink-0 flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 bg-primary" />
                                                     {selectedEquipment.name}

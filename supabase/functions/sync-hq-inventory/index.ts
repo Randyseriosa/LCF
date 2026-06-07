@@ -15,7 +15,10 @@ interface SyncItem {
     date_installed_issued: string | null
     ics: string
     par: string
-    quantity: number | null
+    quantity: number | null // Used as input for balance_on_hand
+    date_last_pms?: string | null
+    date_last_repair?: string | null
+    running_hours?: number | null
     equipment_id?: string
     status?: string
     remarks?: string
@@ -77,7 +80,54 @@ Deno.serve(async (req: Request) => {
             return errorResponse('HQ Inventory vessel record not found. Please run migrations.', 404)
         }
 
-        // 2. Create or find the monthly report record
+        // 2. Validate all items exist in the masterlist and fetch their equipment type.
+        //    Monthly report imports must NOT modify the masterlist (items table).
+        const uniqueCodes = items.map((i: SyncItem) => i.unique_code)
+        const { data: existingItemsInMaster } = await supabaseAdmin
+            .from('items')
+            .select(`
+                id, 
+                unique_code,
+                equipments!inner (
+                    equipment_type
+                )
+            `)
+            .in('unique_code', uniqueCodes)
+
+        const masterItemMap = new Map()
+        existingItemsInMaster?.forEach((item: any) => {
+            masterItemMap.set(item.unique_code, {
+                id: item.id,
+                equipment_type: item.equipments.equipment_type
+            })
+        })
+
+        // Block the import if any item in the monthly report file is not in the masterlist
+        const missingFromMasterlist = items.filter((i: SyncItem) => !masterItemMap.has(i.unique_code))
+        if (missingFromMasterlist.length > 0) {
+            const missingCodes = missingFromMasterlist.slice(0, 10).map((i: SyncItem) => i.unique_code).join(', ')
+            return errorResponse(
+                `Import blocked. The following items are not in the HQ Inventory masterlist: ${missingCodes}${missingFromMasterlist.length > 10 ? '...' : ''}. Please upload the masterlist first via the Masterlist tab.`,
+                400
+            )
+        }
+
+        // 3. Resolve profiles.id from auth_users.id stored in JWT.
+        //    monthly_reports.imported_by references profiles.id, not auth_users.id.
+        const { data: importerProfile, error: importerError } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('auth_user_id', jwtPayload.user_id)
+            .single()
+
+        if (importerError || !importerProfile) {
+            console.error('[sync-hq-inventory] Profile lookup failed:', importerError)
+            return errorResponse('Importer profile not found', 404)
+        }
+
+        const importerId = importerProfile.id
+
+        // 4. Create or find the monthly report record (only after validation passes)
         const reportMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`
 
         // Check if report already exists
@@ -102,7 +152,7 @@ Deno.serve(async (req: Request) => {
                 .insert({
                     vessel_id: hqVessel.id,
                     report_month: reportMonth,
-                    imported_by: jwtPayload.user_id
+                    imported_by: importerId
                 })
                 .select('id')
                 .single()
@@ -113,82 +163,56 @@ Deno.serve(async (req: Request) => {
             reportId = newReport.id
         }
 
-        // 3. Process items - Ensure all items exist in the masterlist first
-        const uniqueCodes = items.map((i: SyncItem) => i.unique_code)
-        const { data: existingItemsInMaster } = await supabaseAdmin
-            .from('items')
-            .select('id, unique_code')
-            .in('unique_code', uniqueCodes)
+        // 5. Insert into monthly_report_items
+        const reportItemsToInsert = items.map((i: SyncItem) => {
+            const masterInfo = masterItemMap.get(i.unique_code)
+            const isAmmunition = masterInfo?.equipment_type === 'ammunitions'
 
-        const masterItemMap = new Map(existingItemsInMaster?.map((i: { id: string; unique_code: string }) => [i.unique_code, i.id]) || [])
-
-        // Identify new items to insert into masterlist
-        const newItemsToInsert = items
-            .filter((i: SyncItem) => !masterItemMap.has(i.unique_code))
-            .map((i: SyncItem) => ({
+            return {
+                report_id: reportId,
+                item_id: masterInfo.id,
                 unique_code: i.unique_code,
-                equipment_id: i.equipment_id,
                 classification: i.classification,
                 nomenclature: i.nomenclature,
                 brand: i.brand,
                 model: i.model,
                 serial_number: i.serial_number,
                 part_number: i.part_number,
-                date_manufactured: i.date_manufactured,
-                date_installed_issued: i.date_installed_issued,
-                quantity: i.quantity,
+                date_manufactured: i.date_manufactured || null,
+                date_installed_issued: i.date_installed_issued || null,
                 ics: i.ics,
-                par: i.par
-            }))
-
-        if (newItemsToInsert.length > 0) {
-            const { data: insertedItems, error: insertError } = await supabaseAdmin
-                .from('items')
-                .insert(newItemsToInsert)
-                .select('id, unique_code')
-
-            if (insertError) {
-                console.error('Error inserting new items to masterlist:', insertError)
-                // Continue anyway? Or fail? Let's fail for safety.
-                return errorResponse(`Failed to update masterlist with new items: ${insertError.message}`, 500)
+                par: i.par,
+                balance_on_hand: isAmmunition ? i.quantity : null,
+                date_last_pms: i.date_last_pms || null,
+                date_last_repair: i.date_last_repair || null,
+                running_hours: i.running_hours || null,
+                status: i.status || 'Active',
+                remarks: i.remarks || ''
             }
-
-            insertedItems?.forEach((i: { id: string; unique_code: string }) => {
-                masterItemMap.set(i.unique_code, i.id)
-            })
-        }
-
-        // 4. Insert into monthly_report_items
-        const reportItemsToInsert = items.map((i: SyncItem) => ({
-            report_id: reportId,
-            item_id: masterItemMap.get(i.unique_code),
-            unique_code: i.unique_code,
-            classification: i.classification,
-            nomenclature: i.nomenclature,
-            brand: i.brand,
-            model: i.model,
-            serial_number: i.serial_number,
-            part_number: i.part_number,
-            date_manufactured: i.date_manufactured,
-            date_installed_issued: i.date_installed_issued,
-            quantity: i.quantity,
-            ics: i.ics,
-            par: i.par,
-            status: i.status || 'Active', // Default status
-            remarks: i.remarks || ''
-        }))
+        })
 
         // Use batches for large imports
-        const batchSize = 100
-        for (let i = 0; i < reportItemsToInsert.length; i += batchSize) {
-            const batch = reportItemsToInsert.slice(i, i + batchSize)
-            const { error: batchError } = await supabaseAdmin
-                .from('monthly_report_items')
-                .insert(batch)
+        try {
+            const batchSize = 100
+            for (let i = 0; i < reportItemsToInsert.length; i += batchSize) {
+                const batch = reportItemsToInsert.slice(i, i + batchSize)
+                const { error: batchError } = await supabaseAdmin
+                    .from('monthly_report_items')
+                    .insert(batch)
 
-            if (batchError) {
-                return errorResponse(`Failed to insert report items batch: ${batchError.message}`, 500)
+                if (batchError) {
+                    throw new Error(`Batch insert failed: ${batchError.message}`)
+                }
             }
+        } catch (batchError: any) {
+            console.error('[sync-hq-inventory] Batch insert error:', batchError)
+
+            // ROLLBACK: If it was a newly created report, delete it.
+            // If it was an existing report, it's now empty (we deleted items at line 133). 
+            // In either case, deleting it ensures the status shows "Not Submitted" instead of a broken report.
+            await supabaseAdmin.from('monthly_reports').delete().eq('id', reportId)
+
+            return errorResponse(`Failed to insert report items: ${batchError.message}`, 500)
         }
 
         return successResponse({

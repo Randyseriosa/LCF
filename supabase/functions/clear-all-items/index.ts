@@ -42,7 +42,14 @@ Deno.serve(async (req: Request) => {
     if (filter === 'hq') {
       const hqPattern = '%-OLCF6-%'
 
-      // Get IDs of HQ items first
+      // 1. Get HQ Vessel ID
+      const { data: hqVessel } = await supabaseAdmin
+        .from('vessels')
+        .select('id')
+        .eq('slug', 'hq-inventory')
+        .single()
+
+      // 2. Get IDs of HQ items first
       const { data: hqItems, error: fetchError } = await supabaseAdmin
         .from('items')
         .select('id')
@@ -51,6 +58,20 @@ Deno.serve(async (req: Request) => {
       if (fetchError) {
         console.error('Error fetching HQ items:', fetchError)
         return errorResponse(`Failed to fetch HQ items: ${fetchError.message}`, 500)
+      }
+
+      if (hqVessel) {
+        // Delete all monthly report items for HQ vessel
+        const { data: hqReports } = await supabaseAdmin
+          .from('monthly_reports')
+          .select('id')
+          .eq('vessel_id', hqVessel.id)
+
+        if (hqReports && hqReports.length > 0) {
+          const reportIds = hqReports.map(r => r.id)
+          await supabaseAdmin.from('monthly_report_items').delete().in('report_id', reportIds)
+          await supabaseAdmin.from('monthly_reports').delete().in('id', reportIds)
+        }
       }
 
       if (hqItems && hqItems.length > 0) {
@@ -78,28 +99,32 @@ Deno.serve(async (req: Request) => {
           return errorResponse(`Failed to delete HQ items: ${itemsError.message}`, 500)
         }
 
-        message = `Successfully cleared ${hqItems.length} HQ items and their assignments`
+        message = `Successfully cleared HQ items, monthly reports, and assignments`
       } else {
-        message = 'No HQ items found to clear'
+        message = 'HQ Master data cleared (No items found)'
       }
     } else {
       // Original "Clear All" behavior
-      // Delete all vessel_item_assignments first
+      // 1. Delete all monthly report data first due to FK constraints
+      await supabaseAdmin.from('monthly_report_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabaseAdmin.from('monthly_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+      // 2. Delete all vessel_item_assignments
       const { error: assignmentsError } = await supabaseAdmin
         .from('vessel_item_assignments')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+        .neq('id', '00000000-0000-0000-0000-000000000000')
 
       if (assignmentsError) {
         console.error('Error deleting vessel_item_assignments:', assignmentsError)
         return errorResponse(`Failed to delete vessel_item_assignments: ${assignmentsError.message}`, 500)
       }
 
-      // Delete all items
+      // 3. Delete all items
       const { error: itemsError } = await supabaseAdmin
         .from('items')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+        .neq('id', '00000000-0000-0000-0000-000000000000')
 
       if (itemsError) {
         console.error('Error deleting items:', itemsError)

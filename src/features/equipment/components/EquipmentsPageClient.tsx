@@ -337,7 +337,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                                     }}
                                     className="bg-accent text-white px-6 py-2.5 flex items-center gap-2 hover:bg-secondary-hover transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
                                 >
-                                    <Plus className="w-4 h-4" /> Add Items
+                                    <Plus className="w-4 h-4" /> Update Masterlist
                                 </button>
                                 <button
                                     onClick={() => { setCurrentEquipment({}); setModalError(null); setIsModalOpen(true) }}

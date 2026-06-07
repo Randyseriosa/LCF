@@ -16,7 +16,10 @@ interface ReportItem {
     part_number: string
     date_manufactured: string
     date_installed_issued: string
-    quantity: number | null
+    balance_on_hand: number | null
+    date_last_pms?: string
+    date_last_repair?: string
+    running_hours?: number | null
     status: string
     remarks: string
     equipment_name?: string
@@ -59,7 +62,7 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                 .select('id')
                 .eq('vessel_id', hqVessel.id)
                 .eq('report_month', reportMonth)
-                .single()
+                .maybeSingle()
 
             if (!report) {
                 setItems([])
@@ -80,7 +83,10 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                     part_number, 
                     date_manufactured, 
                     date_installed_issued, 
-                    quantity, 
+                    balance_on_hand,
+                    date_last_pms,
+                    date_last_repair,
+                    running_hours,
                     status, 
                     remarks,
                     items (
@@ -106,7 +112,10 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                 part_number: ri.part_number,
                 date_manufactured: ri.date_manufactured,
                 date_installed_issued: ri.date_installed_issued,
-                quantity: ri.quantity,
+                balance_on_hand: ri.balance_on_hand,
+                date_last_pms: ri.date_last_pms,
+                date_last_repair: ri.date_last_repair,
+                running_hours: ri.running_hours,
                 status: ri.status,
                 remarks: ri.remarks,
                 equipment_name: ri.items?.equipments?.name || 'Uncategorized',
@@ -182,7 +191,6 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-foreground/2 border-b border-foreground/10">
-                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Status</th>
                                         <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Unique Code</th>
                                         <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Nomenclature</th>
                                         {isAmmunition ? (
@@ -200,18 +208,10 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                                 <tbody className="divide-y divide-foreground/5">
                                     {groupItems.map((item) => (
                                         <tr key={item.id} className="hover:bg-foreground/2 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${item.status === 'Operational' || item.status === 'Active'
-                                                    ? 'bg-secondary/20 text-foreground'
-                                                    : 'bg-error/20 text-error'
-                                                    }`}>
-                                                    {item.status || 'Active'}
-                                                </span>
-                                            </td>
                                             <td className="px-4 py-3 text-xs font-medium text-foreground">{item.unique_code}</td>
                                             <td className="px-4 py-3 text-xs text-foreground uppercase">{item.nomenclature}</td>
                                             {isAmmunition ? (
-                                                <td className="px-4 py-3 text-xs text-foreground font-mono">{item.quantity ?? '-'}</td>
+                                                <td className="px-4 py-3 text-xs text-foreground font-mono">{item.balance_on_hand ?? '-'}</td>
                                             ) : (
                                                 <>
                                                     <td className="px-4 py-3 text-xs text-foreground uppercase truncate max-w-[150px]">

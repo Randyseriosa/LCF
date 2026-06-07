@@ -34,7 +34,8 @@ export function ReportsTab() {
 
             const { data, error } = await supabase
                 .from('monthly_reports')
-                .select('report_month')
+                .select('report_month, vessels!inner(slug)')
+                .eq('vessels.slug', 'hq-inventory')
                 .gte('report_month', startDate)
                 .lte('report_month', endDate)
 

@@ -5,7 +5,7 @@ import { Upload, X, FileSpreadsheet, Check, AlertCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { getAuthUser } from '@/lib/auth'
-import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
+import { formatDateToDDMMYYYY, formatDateToISO } from '@/utils/dateUtils'
 
 interface ImportItem {
     unique_code: string
@@ -20,7 +20,36 @@ interface ImportItem {
     ics: string
     par: string
     quantity: number | null
+    date_last_pms?: string
+    date_last_repair?: string
+    running_hours?: number | null
+    remarks?: string
     status?: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed'
+}
+
+interface ParsedFileInfo {
+    slug: string
+    month: number // 1-12
+    year: number
+    month_name: string
+}
+
+/**
+ * Parse filename to extract slug, month, and year.
+ * Format: "HQSLUG-MMYYYY.xlsx" -> slug, month (1-12), year
+ */
+function parseFilenameInfo(filename: string): ParsedFileInfo | null {
+    const match = filename.match(/^([A-Za-z0-9-]+)-(\d{2})(\d{4})\.(xlsx|xls)$/i)
+    if (!match) return null
+    const [, slug, monthStr, yearStr] = match
+    const month = parseInt(monthStr, 10)
+    const year = parseInt(yearStr, 10)
+    if (month < 1 || month > 12) return null
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ]
+    return { slug, month, year, month_name: monthNames[month - 1] }
 }
 
 interface ImportItemsModalProps {
@@ -58,6 +87,7 @@ export function ImportItemsModal({
     const [isImporting, setIsImporting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [equipments, setEquipments] = useState<Record<string, { id: string; name: string; equipment_type: string | null }>>({})
+    const [parsedFileInfo, setParsedFileInfo] = useState<ParsedFileInfo | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Fetch equipment data when modal opens
@@ -71,6 +101,7 @@ export function ImportItemsModal({
             setError(null)
             setIsProcessing(false)
             setIsImporting(false)
+            setParsedFileInfo(null)
             if (fileInputRef.current) {
                 fileInputRef.current.value = ''
             }
@@ -114,6 +145,17 @@ export function ImportItemsModal({
                 setError('Please upload a valid Excel file (.xlsx or .xls)')
                 return
             }
+
+            // For HQ Monthly Report, parse filename to extract month/year automatically
+            if (isHqInventory && isMonthlyReport) {
+                const info = parseFilenameInfo(selectedFile.name)
+                if (!info) {
+                    setError('Invalid filename format. Expected format: HQSLUG-MMYYYY.xlsx (e.g. HQ-052026.xlsx)')
+                    return
+                }
+                setParsedFileInfo(info)
+            }
+
             setFile(selectedFile)
             setError(null)
             setParsedData([])
@@ -176,6 +218,10 @@ export function ImportItemsModal({
                         else if (headerName === 'ics' || headerName.includes('inventory custodian')) columnMap.ics = index
                         else if (headerName === 'par' || headerName.includes('property acknowledgement')) columnMap.par = index
                         else if (headerName === 'quantity' || headerName === 'qty' || headerName === 'count' || headerName === 'qty.' || headerName === 'balance on hand' || headerName === 'balance') columnMap.quantity = index
+                        else if (headerName.includes('last pms') || headerName.includes('last_pms') || headerName.includes('date of last pms')) columnMap.date_last_pms = index
+                        else if (headerName.includes('last repair') || headerName.includes('last_repair') || headerName.includes('date of last repair')) columnMap.date_last_repair = index
+                        else if (headerName.includes('running hours') || headerName.includes('running_hours')) columnMap.running_hours = index
+                        else if (headerName === 'remarks' || headerName === 'remark') columnMap.remarks = index
                     })
                     console.log('[DEBUG] Final columnMap:', columnMap)
                     break
@@ -274,8 +320,6 @@ export function ImportItemsModal({
                         } else {
                             // Standard equipment structure using columnMap
                             console.log('[DEBUG] Using standard column mapping')
-                            const quantityValue = columnMap.quantity !== undefined ? row[columnMap.quantity] : undefined
-                            console.log('[DEBUG] Raw quantity value from row:', quantityValue, 'at index', columnMap.quantity)
 
                             item = {
                                 unique_code: columnMap.unique_code !== undefined
@@ -300,10 +344,10 @@ export function ImportItemsModal({
                                     ? row[columnMap.part_number]?.toString().trim() || ''
                                     : '',
                                 date_manufactured: columnMap.date_manufactured !== undefined
-                                    ? formatDateToDDMMYYYY(row[columnMap.date_manufactured] || '') || ''
+                                    ? formatDateToISO(row[columnMap.date_manufactured] || '') || ''
                                     : '',
                                 date_installed_issued: columnMap.date_installed_issued !== undefined
-                                    ? formatDateToDDMMYYYY(row[columnMap.date_installed_issued] || '') || ''
+                                    ? formatDateToISO(row[columnMap.date_installed_issued] || '') || ''
                                     : '',
                                 ics: columnMap.ics !== undefined
                                     ? row[columnMap.ics]?.toString().trim() || ''
@@ -313,7 +357,19 @@ export function ImportItemsModal({
                                     : '',
                                 quantity: columnMap.quantity !== undefined
                                     ? extractNumber(row[columnMap.quantity])
-                                    : null
+                                    : null,
+                                date_last_pms: columnMap.date_last_pms !== undefined
+                                    ? formatDateToISO(row[columnMap.date_last_pms] || '') || undefined
+                                    : undefined,
+                                date_last_repair: columnMap.date_last_repair !== undefined
+                                    ? formatDateToISO(row[columnMap.date_last_repair] || '') || undefined
+                                    : undefined,
+                                running_hours: columnMap.running_hours !== undefined
+                                    ? extractNumber(row[columnMap.running_hours])
+                                    : null,
+                                remarks: columnMap.remarks !== undefined
+                                    ? row[columnMap.remarks]?.toString().trim() || undefined
+                                    : undefined,
                             }
                         }
 
@@ -390,6 +446,10 @@ export function ImportItemsModal({
                         ics: dbItem.ics || '',
                         par: dbItem.par || '',
                         quantity: dbItem.quantity,
+                        date_last_pms: dbItem.date_last_pms || undefined,
+                        date_last_repair: dbItem.date_last_repair || undefined,
+                        running_hours: dbItem.running_hours,
+                        remarks: dbItem.remarks || undefined,
                         status: 'missed'
                     }))
 
@@ -463,13 +523,17 @@ export function ImportItemsModal({
 
             // If it's HQ Inventory Monthly Report, use the sync-hq-inventory function
             if (isHqInventory && isMonthlyReport) {
-                if (month === undefined || year === undefined) {
+                // Prefer month/year parsed from filename; fall back to props if not available
+                const reportMonth = parsedFileInfo ? parsedFileInfo.month - 1 : month
+                const reportYear = parsedFileInfo ? parsedFileInfo.year : year
+
+                if (reportMonth === undefined || reportYear === undefined) {
                     throw new Error('Month and Year are required for HQ Monthly Report synchronization')
                 }
 
                 const syncPayload = {
-                    month,
-                    year,
+                    month: reportMonth, // sync-hq-inventory expects 0-indexed month
+                    year: reportYear,
                     items: itemsWithEquipmentId.filter(item => item.status !== 'missed')
                 }
 
@@ -551,7 +615,7 @@ export function ImportItemsModal({
             <div className="bg-surface max-w-4xl w-full shadow-popover border border-foreground/10 max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-3 border-b border-foreground/10">
                     <div>
-                        <h3 className="font-semibold text-[20px] text-foreground">{title || 'Import Items'}</h3>
+                        <h3 className="font-semibold text-[20px] text-foreground">{title || 'Update Masterlist'}</h3>
                         <p className="text-sm text-foreground-muted mt-1">
                             {subtitle || (equipmentName ? `Equipment: ${equipmentName}` : 'Auto-categorize by Unique Code')}
                         </p>
@@ -578,12 +642,17 @@ export function ImportItemsModal({
                             <p className="text-sm text-foreground-muted mb-4">
                                 Upload an Excel file (.xlsx or .xls) containing the items to import.
                             </p>
+                            {isHqInventory && isMonthlyReport && (
+                                <p className="text-xs text-secondary mb-4 font-medium">
+                                    Filename must follow format: <span className="font-mono">SLUG-MMYYYY.xlsx</span> (e.g. HQ-052026.xlsx) — month and year are auto-detected from the filename.
+                                </p>
+                            )}
                             <p className="text-xs text-foreground-muted mb-4">
                                 Expected columns: {isHqInventory ?
                                     'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Acquired' :
                                     'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Installed/Issued, ICS, PAR'}
                             </p>
-                            {!equipmentId && (
+                            {!equipmentId && !isMonthlyReport && (
                                 <p className="text-xs text-secondary mb-4 font-medium">
                                     Items will be auto-categorized by their unique codes
                                 </p>
@@ -613,7 +682,14 @@ export function ImportItemsModal({
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-foreground">{file.name}</p>
-                                        <p className="text-xs text-foreground-muted">{(file.size / 1024).toFixed(2)} KB</p>
+                                        <div className="flex gap-2 text-xs">
+                                            <span className="text-foreground-muted">{(file.size / 1024).toFixed(2)} KB</span>
+                                            {parsedFileInfo && (
+                                                <span className="text-secondary font-bold uppercase tracking-wider">
+                                                    • Detected Period: {parsedFileInfo.month_name} {parsedFileInfo.year}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <button

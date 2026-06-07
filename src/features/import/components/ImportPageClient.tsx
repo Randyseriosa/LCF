@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { Upload, FileSpreadsheet, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getAuthUser } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 import { useMonthlyReportStatus } from '@/hooks/useMonthlyReportStatus'
+import { useRecentImports } from '@/hooks/useRecentImports'
 
 interface ImportRecord {
   month: string
@@ -124,6 +125,20 @@ const formatDateForDisplay = (dateString: string | null): string => {
   }
 }
 
+const formatReportMonth = (dateString: string): string => {
+  try {
+    const [year, month] = dateString.split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1)
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ]
+    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`
+  } catch {
+    return dateString
+  }
+}
+
 const extractNumber = (value: any): number | null => {
   if (value === null || value === undefined || value === '') return null
   if (typeof value === 'number') return value
@@ -154,6 +169,8 @@ export function ImportPageClient() {
   const [vesselId, setVesselId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const renderCount = useRef(0)
+
+  const { imports: recentImports, loading: loadingRecent, error: errorRecent, refresh: refreshRecentImports } = useRecentImports(5)
 
   // Check if monthly report already exists for this vessel/month
   const { status: reportStatus, loading: checkingReportStatus } = useMonthlyReportStatus({
@@ -709,6 +726,7 @@ export function ImportPageClient() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      refreshRecentImports()
     } catch (err: any) {
       setError(err.message || 'Failed to import report')
     } finally {
@@ -1124,11 +1142,60 @@ export function ImportPageClient() {
       {/* Recent Imports */}
       <div className="  bg-surface p-3 shadow-card border border-foreground/10">
         <h3 className="text-[16px] font-semibold text-foreground mb-4">Recent Imports</h3>
-        <div className="flex flex-col items-center justify-center py-4 text-center">
-          <Inbox className="w-8 h-8 text-foreground-muted mb-3" />
-          <p className="text-sm text-foreground-muted">No recent imports</p>
-          <p className="text-xs text-foreground-muted mt-1">Imported reports will appear here</p>
-        </div>
+        {loadingRecent ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent animate-spin mb-2" />
+            <p className="text-xs text-foreground-muted uppercase tracking-widest font-bold">Loading fleet logs...</p>
+          </div>
+        ) : errorRecent ? (
+          <div className="p-4 bg-error-bg text-error text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errorRecent}</span>
+          </div>
+        ) : recentImports.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-foreground/10">
+                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Vessel</th>
+                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Report Month</th>
+                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Imported</th>
+                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-foreground/5">
+                {recentImports.map((item) => (
+                  <tr key={item.id} className="hover:bg-foreground/5 transition-colors">
+                    <td className="py-3 px-2 text-sm font-semibold text-foreground">{item.vessel_name}</td>
+                    <td className="py-3 px-2 text-sm text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        {formatReportMonth(item.report_month)}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2 text-sm text-foreground-muted">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatDateForDisplay(item.created_at)}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2 text-xs text-foreground-muted">
+                      <div className="max-w-[120px] truncate font-medium uppercase" title={item.importer_name}>
+                        {item.importer_name}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Inbox className="w-8 h-8 text-foreground-muted mb-3" />
+            <p className="text-sm text-foreground-muted">No recent imports</p>
+            <p className="text-xs text-foreground-muted mt-1">Imported reports will appear here</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -532,7 +532,17 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/manage-vessel-item-assignment/index.ts"
 
+[functions.sync-hq-inventory]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sync-hq-inventory/index.ts"
+
 [functions.sync-check-monthly-report]
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/sync-check-monthly-report/index.ts"
+
+[functions.clear-monthly-report]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/clear-monthly-report/index.ts"

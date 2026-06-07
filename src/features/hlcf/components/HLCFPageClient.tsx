@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { HistoryLogs } from '@/features/hlcf/components/HistoryLogs'
 import { MasterListTab } from '@/features/hlcf/components/MasterListTab'
@@ -29,12 +30,84 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
     const [activeTab, setActiveTabState] = useState<HLCFTab>(initialTab)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
     const [hqRefreshKey, setHqRefreshKey] = useState(0)
+    const [reportExists, setReportExists] = useState(false)
+    const [isClearingReport, setIsClearingReport] = useState(false)
     const [selectedYear, setSelectedYearState] = useState(
         isNaN(initialYear) ? now.getFullYear() : initialYear
     )
     const [selectedMonth, setSelectedMonthState] = useState(
         isNaN(initialMonth) ? now.getMonth() : initialMonth
     )
+
+    // Check if report exists for selected month/year
+    useEffect(() => {
+        const checkReport = async () => {
+            const supabase = createClient()
+            const reportMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`
+
+            const { data: hqVessel } = await supabase
+                .from('vessels')
+                .select('id')
+                .eq('slug', 'hq-inventory')
+                .single()
+
+            if (!hqVessel) return
+
+            const { data } = await supabase
+                .from('monthly_reports')
+                .select('id')
+                .eq('vessel_id', hqVessel.id)
+                .eq('report_month', reportMonth)
+                .maybeSingle()
+
+            setReportExists(!!data)
+        }
+
+        if (activeTab === 'hq') {
+            checkReport()
+        }
+    }, [selectedMonth, selectedYear, activeTab, hqRefreshKey])
+
+    const handleClearReport = async () => {
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ]
+        const confirmMsg = `ARE YOU SURE YOU WANT TO CLEAR THE HQ INVENTORY REPORT FOR ${monthNames[selectedMonth].toUpperCase()} ${selectedYear}? THIS WILL DELETE ALL REPORT ITEMS FOR THIS PERIOD.`
+
+        if (!window.confirm(confirmMsg)) return
+
+        setIsClearingReport(true)
+        try {
+            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
+            const token = match ? decodeURIComponent(match[1]) : null
+            if (!token) throw new Error('Not authenticated')
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-monthly-report`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    vesselSlug: 'hq-inventory',
+                    month: selectedMonth,
+                    year: selectedYear
+                })
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to clear report')
+            }
+
+            setHqRefreshKey(k => k + 1)
+        } catch (err: any) {
+            alert(`Error: ${err.message}`)
+        } finally {
+            setIsClearingReport(false)
+        }
+    }
 
     /** Update URL params without causing a full navigation */
     const updateUrl = useCallback(
@@ -141,12 +214,23 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                                 />
                             </div>
 
-                            <button
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
-                            >
-                                Import Monthly Report
-                            </button>
+                            <div className="flex gap-2">
+                                {reportExists && (
+                                    <button
+                                        onClick={handleClearReport}
+                                        disabled={isClearingReport}
+                                        className="bg-error/5 hover:bg-error/10 text-error px-4 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/10 transition-colors disabled:opacity-50"
+                                    >
+                                        {isClearingReport ? 'Clearing...' : 'Clear Report'}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsImportModalOpen(true)}
+                                    className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
+                                >
+                                    {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
+                                </button>
+                            </div>
                         </div>
                         <div className="mt-4">
                             <HQInventoryTab

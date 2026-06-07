@@ -645,6 +645,22 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Failed to fetch equipments', 500)
     }
 
+    // Resolve the internal profile ID from the auth_user_id (from JWT)
+    // The imported_by column in monthly_reports references profiles.id, 
+    // while the JWT user_id corresponds to auth_users.id.
+    const { data: importerProfile, error: importerError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', authResult.user_id)
+      .single()
+
+    if (importerError || !importerProfile) {
+      console.error('[import-monthly-report] Profile lookup failed:', importerError)
+      return errorResponse('Importer profile not found', 404)
+    }
+
+    const importerId = importerProfile.id
+
     const equipmentMap: Record<string, string> = {}
     equipments.forEach((equip: { id: string; unique_code: string | null }) => {
       if (equip.unique_code && equip.id) {
@@ -736,7 +752,7 @@ Deno.serve(async (req: Request) => {
         return errorResponse(validationResult.error || 'Ammunition validation failed', 400)
       }
     }
-    const reportResult = await getOrCreateReport(supabaseAdmin, vessel.id, reportMonth, authResult.user_id!)
+    const reportResult = await getOrCreateReport(supabaseAdmin, vessel.id, reportMonth, importerId)
 
     if (reportResult.error) {
       return errorResponse(reportResult.error, 500)
