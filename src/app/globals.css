@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  /* ─── VERDANT FORGE DESIGN SYSTEM ─── */
-  /* Canvas / Background */
+  /* ─── ANCHOR POINT DESIGN SYSTEM ─── */
+  /* Canvas / Background — Stark Deck */
   --background: #FFFFFF;
-  /* Containers / Grid Borders */
-  --surface: #F8F9FA;
-  /* Active States / Primary Action */
-  --primary: #255F38;
-  /* Highlights / CTAs / Accent */
-  --accent: #1F7D53;
-  --secondary: #1F7D53;
-  --secondary-hover: #1a6b47;
+  /* Containers / Grid Borders — Tactical Gray */
+  --surface: #F5F5F5;
+  /* Active States / Primary Action — Deep Navy */
+  --primary: #000080;
+  /* Highlights / CTAs / Accent — Deep Navy */
+  --accent: #000080;
+  --secondary: #000080;
+  --secondary-hover: #0000aa;
 
-  /* Foreground */
-  --foreground: #18230F;
-  --foreground-muted: #27391C;
+  /* Foreground — Abyssal Hull */
+  --foreground: #000033;
+  --foreground-muted: #000066;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #18230F;
-  --sidebar-active: #F8F9FA;
+  --sidebar-foreground: #000033;
+  --sidebar-active: #F0F0F0;
 
   /* Status */
   --error: #DC2626;
@@ -70,6 +70,45 @@
 
   --shadow-card: var(--card-shadow);
   --shadow-popover: var(--popover-shadow);
+
+  /* Tactical Animations */
+  @keyframes breathe {
+
+    0%,
+    100% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.04);
+    }
+  }
+
+  @keyframes sonar-ping {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.8;
+    }
+
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+
+  @keyframes sweep {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-sonar: sonar-ping 4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-sweep: sweep 4s linear infinite;
 }
 
 /* ─── GLOBAL RESETS ─── */

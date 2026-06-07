@@ -27,21 +27,21 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
                                 <ChevronRight className="w-3.5 h-3.5 text-foreground-muted shrink-0" />
                             )}
                             {isLast || (!item.href && !item.onClick) ? (
-                                <span className="font-bold text-foreground text-[20px] tracking-widest uppercase">
+                                <span className="font-black text-primary text-[24px] tracking-[0.1em] uppercase">
                                     {item.label}
                                 </span>
                             ) : item.onClick ? (
                                 <button
                                     type="button"
                                     onClick={item.onClick}
-                                    className="text-foreground-muted hover:text-accent transition-colors font-semibold text-[20px] tracking-widest uppercase bg-transparent border-none cursor-pointer p-0"
+                                    className="text-gray-400 hover:text-primary transition-colors font-black text-[24px] tracking-[0.1em] uppercase bg-transparent border-none cursor-pointer p-0"
                                 >
                                     {item.label}
                                 </button>
                             ) : (
                                 <Link
                                     href={item.href!}
-                                    className="text-foreground-muted hover:text-accent transition-colors font-semibold text-[20px] tracking-widest uppercase"
+                                    className="text-gray-400 hover:text-primary transition-colors font-black text-[24px] tracking-[0.1em] uppercase"
                                 >
                                     {item.label}
                                 </Link>

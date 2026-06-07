@@ -7,6 +7,10 @@ import { ROLES } from '@/lib/types/roles'
 import FilterTagInput from './FilterTagInput'
 import BowGroup from './BowGroup'
 import MultiSelectDropdown from './MultiSelectDropdown'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { getEquipmentGroupLabel } from '@/features/equipment/utils/equipmentGroup'
+
+
 
 interface InventoryReportPageProps {
   role?: string
@@ -14,7 +18,7 @@ interface InventoryReportPageProps {
 
 export default function InventoryReportPage({ role = ROLES.viewer }: InventoryReportPageProps) {
   const {
-    items, loading, error, totalCount,
+    items, loading, error,
     filters, addFilter, removeFilter, updateKeyword, clearFilters,
     getSuggestions, hasActiveFilters, activeFilterCount,
     classFilter, bowFilter, toggleClassFilter, toggleBowFilter,
@@ -59,24 +63,24 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
     document.body.removeChild(link)
   }
 
+
+
   return (
-    <div className="p-4 space-y-3">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-bold text-foreground">Inventory Report</h1>
-          <p className="text-sm text-foreground-muted mt-1">
-            Total Items: <span className="font-semibold text-foreground">{totalCount}</span>
-          </p>
-        </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Global Inventory View"
+        description={`Total Vessels: ${bowGroups.length}`}
+        Icon={FileText}
+        actions={
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition-all border bg-white text-primary border-primary hover:bg-primary hover:text-white"
+          >
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            Export Summary
+          </button>
+        }
+      />
 
       {/* Search and Filters */}
       <div className="  bg-surface p-3 shadow-card border border-foreground/10 space-y-4">
@@ -139,7 +143,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
             {equipmentCategoryFilter && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 border border-primary/20 text-xs font-medium text-foreground">
                 <span className="text-foreground-muted">category:</span>
-                <span>{equipmentCategoryFilter}</span>
+                <span>{getEquipmentGroupLabel(equipmentCategoryFilter as any)}</span>
                 <button onClick={() => setEquipmentCategoryFilter('')} className="ml-0.5 text-foreground-muted hover:text-error transition-colors">
                   <X className="w-3 h-3" />
                 </button>
@@ -191,7 +195,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
               </label>
               <select value={equipmentCategoryFilter} onChange={e => setEquipmentCategoryFilter(e.target.value as any)} className={selectClass}>
                 <option value="">All Categories</option>
-                {EQUIPMENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {EQUIPMENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{getEquipmentGroupLabel(cat as any)}</option>)}
               </select>
             </div>
 
@@ -242,6 +246,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
               items={group.items}
               hasReport={group.hasReport}
               reportDate={group.reportDate}
+              basePath={role ? `/${role}` : ''}
             />
           ))}
           <div className="text-center text-sm text-foreground-muted py-4">

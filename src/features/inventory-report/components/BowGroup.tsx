@@ -12,6 +12,7 @@ interface BowGroupProps {
   items: InventoryItem[]
   hasReport: boolean
   reportDate?: string | null
+  basePath?: string
 }
 
 function formatDate(date: string | null): string {
@@ -45,13 +46,13 @@ function getReportMonthYear(reportDate: string | null | undefined): { month: num
   }
 }
 
-export default function BowGroup({ bowNumber, className, items, hasReport, reportDate }: BowGroupProps) {
+export default function BowGroup({ bowNumber, className, items, hasReport, reportDate, basePath = '/encoder' }: BowGroupProps) {
   const [expanded, setExpanded] = useState(false)
 
   const reportPeriod = getReportMonthYear(reportDate)
   const detailUrl = reportPeriod
-    ? `/encoder/reports/${encodeURIComponent(bowNumber)}?month=${reportPeriod.month}&year=${reportPeriod.year}`
-    : `/encoder/reports/${encodeURIComponent(bowNumber)}`
+    ? `${basePath}/monthly-report/${encodeURIComponent(bowNumber)}?month=${reportPeriod.month}&year=${reportPeriod.year}`
+    : `${basePath}/monthly-report/${encodeURIComponent(bowNumber)}`
 
   // Check if report is up to date (current month)
   const isUpToDate = useMemo(() => {

@@ -29,7 +29,7 @@ export default async function InactivePage() {
                 </h1>
 
                 <p className="font-['Inter'] text-[14px] text-gray-500 mb-4 leading-relaxed">
-                    Please contact your admin to activate your account. You will not be able to access the dashboard until your account is approved.
+                    Please contact your admin to activate your account. You will not be able to access the system overview until your account is approved.
                 </p>
 
                 <form action="/auth/signout" method="post">

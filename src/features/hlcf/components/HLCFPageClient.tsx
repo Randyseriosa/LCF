@@ -1,32 +1,87 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Inbox } from 'lucide-react'
-import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTransfer'
+import React, { useState, useCallback } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { HistoryLogs } from '@/features/hlcf/components/HistoryLogs'
 import { MasterListTab } from '@/features/hlcf/components/MasterListTab'
 import { ReportsTab } from '@/features/hlcf/components/ReportsTab'
+import { HQInventoryTab } from '@/features/hlcf/components/HQInventoryTab'
 import { ImportItemsModal } from '@/features/equipment/components/ImportItemsModal'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Package } from 'lucide-react'
 
-export function HLCFPageClient() {
-    const [activeTab, setActiveTab] = useState<'hq' | 'bow' | 'logs' | 'masterlist' | 'reports'>('hq')
+type HLCFTab = 'hq' | 'logs' | 'masterlist' | 'reports'
+const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports', 'logs']
+
+export function HLCFPageClient({ basePath }: { basePath: string }) {
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+
+    // Read initial state from URL, fall back to defaults
+    const now = new Date()
+    const rawTab = searchParams.get('tab') as HLCFTab | null
+    const initialTab: HLCFTab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'hq'
+    const initialMonth = parseInt(searchParams.get('month') ?? String(now.getMonth()), 10)
+    const initialYear = parseInt(searchParams.get('year') ?? String(now.getFullYear()), 10)
+
+    const [activeTab, setActiveTabState] = useState<HLCFTab>(initialTab)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+    const [hqRefreshKey, setHqRefreshKey] = useState(0)
+    const [selectedYear, setSelectedYearState] = useState(
+        isNaN(initialYear) ? now.getFullYear() : initialYear
+    )
+    const [selectedMonth, setSelectedMonthState] = useState(
+        isNaN(initialMonth) ? now.getMonth() : initialMonth
+    )
 
-    const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ]
+    /** Update URL params without causing a full navigation */
+    const updateUrl = useCallback(
+        (tab: HLCFTab, month: number, year: number) => {
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('tab', tab)
+            params.set('month', String(month))
+            params.set('year', String(year))
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+        },
+        [router, pathname, searchParams]
+    )
 
-    const currentYear = new Date().getFullYear()
+    const setActiveTab = useCallback(
+        (tab: HLCFTab) => {
+            setActiveTabState(tab)
+            updateUrl(tab, selectedMonth, selectedYear)
+        },
+        [updateUrl, selectedMonth, selectedYear]
+    )
+
+    const setSelectedMonth = useCallback(
+        (month: number) => {
+            setSelectedMonthState(month)
+            updateUrl(activeTab, month, selectedYear)
+        },
+        [updateUrl, activeTab, selectedYear]
+    )
+
+    const setSelectedYear = useCallback(
+        (year: number) => {
+            setSelectedYearState(year)
+            updateUrl(activeTab, selectedMonth, year)
+        },
+        [updateUrl, activeTab, selectedMonth]
+    )
+
+
 
     return (
-        <div className="p-4 space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-[20px] font-semibold text-foreground uppercase tracking-widest">HLCF INVENTORY</h1>
-            </div>
+        <div className="space-y-6">
+            <PageHeader
+                title="HLCF Inventory"
+                description="Manage HQS Inventory, Vessels, and Equipment"
+                onBack={() => router.push(basePath)}
+                Icon={Package}
+            />
 
             {/* Segmented Control */}
             <div className="flex bg-surface border border-foreground/10 w-fit">
@@ -38,15 +93,6 @@ export function HLCFPageClient() {
                         }`}
                 >
                     HQ Inventory
-                </button>
-                <button
-                    onClick={() => setActiveTab('bow')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'bow'
-                        ? 'bg-primary text-background'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                        }`}
-                >
-                    Bow Inventory
                 </button>
                 <button
                     onClick={() => setActiveTab('masterlist')}
@@ -88,8 +134,9 @@ export function HLCFPageClient() {
                                     month={selectedMonth}
                                     year={selectedYear}
                                     onChange={(m, y) => {
-                                        setSelectedMonth(m)
-                                        setSelectedYear(y)
+                                        setSelectedMonthState(m)
+                                        setSelectedYearState(y)
+                                        updateUrl(activeTab, m, y)
                                     }}
                                 />
                             </div>
@@ -101,21 +148,13 @@ export function HLCFPageClient() {
                                 Import Monthly Report
                             </button>
                         </div>
-                        <div className="flex flex-col items-center justify-center text-center py-12">
-                            <div className="mb-4 flex h-14 w-14 items-center justify-center bg-secondary/10">
-                                <Inbox className="w-7 h-7 text-foreground-muted" />
-                            </div>
-                            <h3 className="text-foreground font-semibold text-[18px] mb-2 uppercase tracking-widest">HQ Inventory</h3>
-                            <p className="text-foreground-muted text-sm max-w-xs mb-6">
-                                HQ Inventory content for {months[selectedMonth]} {selectedYear} is not yet available.
-                            </p>
+                        <div className="mt-4">
+                            <HQInventoryTab
+                                key={hqRefreshKey}
+                                month={selectedMonth}
+                                year={selectedYear}
+                            />
                         </div>
-                    </div>
-                )}
-
-                {activeTab === 'bow' && (
-                    <div className="py-2">
-                        <BowInventoryTransfer />
                     </div>
                 )}
 
@@ -143,11 +182,15 @@ export function HLCFPageClient() {
                 onClose={() => setIsImportModalOpen(false)}
                 isHqInventory={true}
                 isMonthlyReport={true}
+                month={selectedMonth}
+                year={selectedYear}
                 title="Import Monthly Report"
                 subtitle="Monthly inventory status update"
                 onImportComplete={() => {
                     setIsImportModalOpen(false)
-                    // If we had a table here we would refresh it
+                    setActiveTabState('hq')
+                    updateUrl('hq', selectedMonth, selectedYear)
+                    setHqRefreshKey(k => k + 1)
                 }}
             />
         </div>

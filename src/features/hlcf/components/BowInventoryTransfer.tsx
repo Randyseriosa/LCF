@@ -223,7 +223,7 @@ export function BowInventoryTransfer() {
             const targetBow = vessels.find(v => v.id === targetVesselId)?.bow_number || 'Recipient'
             const count = result.data?.transferred || 0
 
-            setSuccessMsg(`Successfully transferred ${count} items to ${targetBow}`)
+            setSuccessMsg(`Successfully transferred ${count} item/s to ${targetBow}`)
 
             if (result.data?.items) {
                 setTransferredItems(result.data.items)
@@ -374,7 +374,7 @@ export function BowInventoryTransfer() {
                 ) : (
                     <div className="flex-1 overflow-auto border border-foreground/10 bg-background relative flex items-center justify-center">
                         <div className="text-center py-8 text-sm text-foreground-muted uppercase tracking-widest">
-                            Select a source to view items
+                            Select a source to view item/s
                         </div>
                     </div>
                 )}
@@ -433,7 +433,7 @@ export function BowInventoryTransfer() {
                         {!transferredItems.length && previewItems.length === 0 ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
                                 <p className="text-xs text-foreground-muted uppercase tracking-widest">
-                                    Select {selectedItemIds.size > 0 ? selectedItemIds.size : 'items'} to preview move to the recipient.
+                                    Select {selectedItemIds.size > 0 ? `${selectedItemIds.size} Item/s` : 'item/s'} to preview transfer.
                                 </p>
                                 {error && (
                                     <div className="mt-4 p-3 bg-error-bg text-error text-xs font-semibold w-full">

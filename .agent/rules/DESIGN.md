@@ -4,38 +4,38 @@ trigger: always_on
 
 ---
 version: alpha
-name: "Verdant Forge Dashboard System"
-description: "A high-contrast, sharp-edged dashboard UI design system tailored for a bold, masculine, and minimalist green aesthetic."
+name: "Anchor Point Inventory System"
+description: "A high-contrast, sharp-edged dashboard UI design system tailored for a stark, tactical, and authoritative naval maritime aesthetic."
 ---
 
 # Dashboard Component Design Specification
 
-This document details the visual styles, variants, and component states for the *Verdant Forge* dashboard. The system features a strong, geometric, and uncompromising aesthetic utilizing bold typography paired with a deep, militaristic green palette and sharp `0px` borders.
+This document details the visual styles, variants, and component states for the *Anchor Point* naval equipment inventory platform. The system features a strong, geometric, and uncompromising aesthetic utilizing bold typography paired with a deep oceanic navy and stark white palette with sharp `0px` borders.
 
 ---
 
 ## 1. Typography & General Layout
 * **Font Family:** Sans-Serif / Geometric Monospace (e.g., Inter, Roboto Mono, or SF Pro Display)
 * **Font Weight:** Bold / Heavy for headers; Medium for interface elements
-* **Text Transform:** UPPERCASE for primary actions, navigation links, and section headers to reinforce the bold, masculine aesthetic.
+* **Text Transform:** UPPERCASE for primary actions, navigation links, and section headers to reinforce the structured, military command aesthetic.
 * **Padding:** Compact vertical breathing room with wide horizontal margins to emphasize structure and strength.
 
 ---
 
 ## 2. Palette & Color Tokens
-The color tokens are engineered to create deep contrast without feeling soft or pastel.
+The color tokens are engineered to create maximum contrast and readability under operational conditions, entirely avoiding soft or muddy tones.
 
 | Token | Hex Code | Role in UI |
 | :--- | :--- | :--- |
-| **Deep Void** | `#18230F` | Main Dashboard Canvas / App Background |
-| **Forest Shadow** | `#27391C` | Card Backgrounds / Containers / Secondary Borders |
-| **Tactical Green** | `#255F38` | Primary Interactive Elements / Active States |
-| **Cyber Moss** | `#1F7D53` | Accent Highlighting / Success States / Data Terminals |
+| **Stark Deck** | `#FFFFFF` | Main Dashboard Canvas / App Background |
+| **Abyssal Hull** | `#000033` | Primary Typography / Dark Text Elements |
+| **Deep Navy** | `#000080` | Primary Interactive Elements / Active States / Headers |
+| **Tactical Gray** | `#E6E6FA` | Card Backgrounds / Structural Containers / Secondary Borders |
 
 ---
 
 ## 3. Component Shapes & Border Radii
-To maintain a rigid, minimal strength look, the system completely rejects soft curves in favor of aggressive, boxy geometry.
+To maintain a rigid, military-grade strength look, the system completely rejects soft curves in favor of aggressive, boxy geometry.
 
 | Style | Border Radius | Description |
 | :--- | :--- | :--- |
@@ -48,21 +48,21 @@ To maintain a rigid, minimal strength look, the system completely rejects soft c
 
 ### Primary Active (Filled)
 High-contrast actions intended for the primary call-to-action (CTA) or active navigation views.
-* **Background:** Solid Cyber Moss (`#1F7D53`)
-* **Text/Icon Color:** Deep Void (`#18230F`)
+* **Background:** Solid Deep Navy (`#000080`)
+* **Text/Icon Color:** Stark Deck (`#FFFFFF`)
 * **Border:** None
 
 ### Secondary (Outlined / Structural)
 Used for dashboard grid dividers, structural data cards, and alternative actions.
-* **Background:** Forest Shadow (`#27391C`)
-* **Border:** Thin solid stroke Tactical Green (`#255F38`)
-* **Text/Icon Color:** Solid White or High-Opacity Light Gray
+* **Background:** Tactical Gray (`#E6E6FA`)
+* **Border:** Thin solid stroke Deep Navy (`#000080`)
+* **Text/Icon Color:** Abyssal Hull (`#000033`)
 
 ### Disabled / Inactive
-Indicates a metric, system status, or action that is currently offline or unauthorized.
-* **Background:** Deep Void (`#18230F`)
-* **Border:** Thin solid stroke Forest Shadow (`#27391C`)
-* **Text/Icon Color:** Muted Milspec Gray / Low Opacity Green
+Indicates an equipment manifest, system status, or action that is currently offline, depleted, or unauthorized.
+* **Background:** Tactical Gray (`#E6E6FA`)
+* **Border:** None
+* **Text/Icon Color:** Light Gray / Low Opacity Deep Navy
 
 ---
 
@@ -70,16 +70,16 @@ Indicates a metric, system status, or action that is currently offline or unauth
 
 ### Metric Cards & Data Readouts
 Data containers built on a strict structural grid layout.
-* **Header / Title:** Small text size, UPPERCASE, Cyber Moss (`#1F7D53`)
-* **Primary Metric Value:** Large, Bold, White (`#FFFFFF`) text with `0px` layout margins.
+* **Header / Title:** Small text size, UPPERCASE, Deep Navy (`#000080`)
+* **Primary Metric Value:** Large, Bold, Abyssal Hull (`#000033`) text with `0px` layout margins.
 * **Trend Indicator:** Text inline with mini block symbols `[ ▲ +14.2% ]` or `[ ▼ -3.5% ]`.
 
 ### Segmented Control Toggles
-Used for switching dashboard timelines, system modules, or server views.
-* **Active State:** Filled Tactical Green (`#255F38`) with Deep Void text.
-* **Inactive State:** Deep Void background with Forest Shadow borders.
-* **Layout:** `[ SYSTEM OVERVIEW ]` `[ NETWORK TRAFFIC ]` `[ SECURITY LOGS ]`
+Used for switching dashboard timelines, asset categories, or deployment fleets.
+* **Active State:** Filled Deep Navy (`#000080`) with Stark Deck (`#FFFFFF`) text.
+* **Inactive State:** Tactical Gray (`#E6E6FA`) background with Deep Navy (`#000080`) typography.
+* **Layout:** `[ FLEET MANIFEST ]` `[ COMMS GEAR ]` `[ MUNITIONS ]`
 
 ### Standalone Tactical Icons
-Sharp, un-rounded grid buttons for utility actions like refresh, system settings, or terminal commands.
-* **Utility Shapes:** `0px` hard-edged squares housing minimal vector glyphs (e.g., Terminal `>_`, Security `⚿`, Refresh `↻`).
+Sharp, un-rounded grid buttons for utility actions like refresh, system settings, or supply requests.
+* **Utility Shapes:** `0px` hard-edged squares housing minimal vector glyphs (e.g., Radar `⌖`, Anchor `⚓`, Cargo `⛟`).

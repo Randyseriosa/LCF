@@ -65,6 +65,11 @@ Deno.serve(async (req: Request) => {
       return successResponse(data)
     } else if (action === 'delete') {
       if (!id) return errorResponse('id is required for delete', 400)
+      // Prevent deletion of pre-defined system equipments
+      const { data: eqRecord } = await supabaseAdmin.from('equipments').select('is_predefined').eq('id', id).single()
+      if (eqRecord?.is_predefined) {
+        return errorResponse('Pre-defined system equipments cannot be deleted', 403)
+      }
       const { error, data } = await supabaseAdmin.from('equipments').delete().eq('id', id).select().single()
       if (error) return errorResponse(getFriendlyErrorMessage(error), 400)
       return successResponse(data)

@@ -7,7 +7,7 @@ import { Role } from '@/lib/types/roles'
 import { ArrowLeft, Package, ShieldCheck } from 'lucide-react'
 import { useEquipmentWithItems } from '@/features/equipment/hooks/useEquipmentWithItems'
 import { ManageEquipmentItems } from '@/features/vessels/components/ManageEquipmentItems'
-import { getEquipmentGroupFromUniqueCode, isAmmunitionsGroup } from '@/features/equipment/utils/equipmentGroup'
+import { getEquipmentGroupFromUniqueCode, isAmmunitionsGroup, getEquipmentGroupLabel } from '@/features/equipment/utils/equipmentGroup'
 
 // Helper function to convert equipment name to URL-friendly slug
 const toSlug = (name: string): string => {
@@ -197,9 +197,22 @@ export function BowEquipmentPageClient({ slug, role }: { slug: string; role: Rol
                                         const selectedEquipment = equipments.find(e => e.id === selectedEquipmentId)
                                         if (!selectedEquipment) return null
 
+                                        const group = getEquipmentGroupFromUniqueCode(selectedEquipment.unique_code ?? undefined)
+                                        const groupLabel = getEquipmentGroupLabel(group)
+
                                         return (
                                             <div className="flex flex-col flex-1 min-h-0">
-                                                <h3 className="text-md font-semibold text-foreground mb-4 shrink-0">
+                                                <div className="mb-4">
+                                                    <p className="text-[11px] font-black uppercase tracking-[0.25em] text-primary leading-none mb-1">
+                                                        Equipment Category
+                                                    </p>
+                                                    <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight leading-tight">
+                                                        {groupLabel}
+                                                    </h2>
+                                                </div>
+
+                                                <h3 className="text-md font-semibold text-foreground mb-4 shrink-0 flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 bg-primary" />
                                                     {selectedEquipment.name}
                                                 </h3>
                                                 {selectedEquipment.items.length > 0 ? (

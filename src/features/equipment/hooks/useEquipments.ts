@@ -7,6 +7,7 @@ export interface Equipment {
     name: string
     unique_code?: string
     equipment_type?: string | null
+    is_predefined?: boolean
     created_at: string
 }
 

@@ -4,8 +4,9 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useVesselsWithReportStatus } from '@/hooks/useVesselsWithReportStatus'
 import { useClassesOfVessel } from '@/hooks/useClassesOfVessel'
-import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle } from 'lucide-react'
+import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 
 const MONTHS = [
@@ -98,7 +99,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
     const showGroupedView = !selectedClass
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-6">
             {/* Header with Filters */}
             <div className=" border border-foreground/5  bg-surface p-3 shadow-card">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -229,7 +230,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                                                     <td className="px-4 py-2 text-xs whitespace-nowrap">
                                                         {vessel.bow_number ? (
                                                             <Link
-                                                                href={`${basePath}/reports/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
+                                                                href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
                                                                 className="text-foreground hover:text-secondary transition-colors font-medium"
                                                             >
                                                                 {vessel.bow_number}
@@ -265,7 +266,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                                             <td className="px-4 py-2 text-xs whitespace-nowrap">
                                                 {vessel.bow_number ? (
                                                     <Link
-                                                        href={`${basePath}/reports/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
+                                                        href={`${basePath}/monthly-report/${vessel.bow_number}?month=${selectedMonth}&year=${selectedYear}`}
                                                         className="text-foreground hover:text-secondary transition-colors font-medium"
                                                     >
                                                         {vessel.bow_number}

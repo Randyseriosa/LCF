@@ -4,41 +4,38 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Role, ROLES } from '@/lib/types/roles'
 import { useVessels, ClassOfVessel, Vessel } from '../hooks/useVessels'
-import { Anchor, Plus, Pencil, Trash2, X, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Filter, Package, Search } from 'lucide-react'
+import { Anchor, Plus, Pencil, Trash2, X, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Filter, Package, Search, Ship } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type SortDirection = 'asc' | 'desc' | null
 
-export function VesselsPageClient({ role }: { role: Role }) {
+export function VesselsPageClient({ role, basePath }: { role: Role, basePath: string }) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const pathname = usePathname()
     const { classesOfVessel, vessels, loading, error, manageClassOfVessel, reorderClassesOfVessel, manageVessel } = useVessels()
-    const [activeTab, setActiveTab] = useState<'class' | 'bow'>('class')
+
+    // Read active tab from URL; default to 'bow'
+    const rawTab = searchParams.get('tab')
+    const initialTab: 'class' | 'bow' = rawTab === 'class' ? 'class' : 'bow'
+    const [activeTab, setActiveTabState] = useState<'class' | 'bow'>(initialTab)
     const canEdit = role === ROLES.admin || role === ROLES.encoder
 
     // Highlight state: when returning from equipment page after save
     const [highlightedVesselId, setHighlightedVesselId] = useState<string | null>(null)
 
     useEffect(() => {
-        const tabParam = searchParams.get('tab')
         const highlightId = searchParams.get('highlight')
-
-        // Switch to bow tab if requested via URL param
-        if (tabParam === 'bow') {
-            setActiveTab('bow')
-        }
 
         if (highlightId) {
             setHighlightedVesselId(highlightId)
-            setActiveTab('bow')
-        }
-
-        // Clean up URL params without re-render
-        if (tabParam || highlightId) {
-            const url = new URL(window.location.href)
-            url.searchParams.delete('tab')
-            url.searchParams.delete('highlight')
-            window.history.replaceState({}, '', url.toString())
+            // Switch to bow tab when returning from equipment page with a highlight
+            setActiveTabState('bow')
+            // Update URL: keep tab=bow, remove highlight
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('tab', 'bow')
+            params.delete('highlight')
+            window.history.replaceState({}, '', `${pathname}?${params.toString()}`)
         }
 
         // Auto-clear highlight after 2.5s
@@ -46,7 +43,18 @@ export function VesselsPageClient({ role }: { role: Role }) {
             const timer = setTimeout(() => setHighlightedVesselId(null), 2500)
             return () => clearTimeout(timer)
         }
-    }, [searchParams])
+    }, [searchParams, pathname])
+
+    /** Persist selected tab in URL */
+    const setActiveTab = useCallback(
+        (tab: 'class' | 'bow') => {
+            setActiveTabState(tab)
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('tab', tab)
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+        },
+        [router, pathname, searchParams]
+    )
 
     // Modal state for Class of Vessel
     const [isClassModalOpen, setIsClassModalOpen] = useState(false)
@@ -270,22 +278,15 @@ export function VesselsPageClient({ role }: { role: Role }) {
     if (error) return <div className="p-4 text-error">Error: {error}</div>
 
     return (
-        <div className="p-4 space-y-3">
-            <h1 className="text-[20px] font-bold text-foreground flex items-center gap-2">
-                <Anchor className="w-6 h-6 text-primary" />
-                Vessels Management
-            </h1>
+        <div className="space-y-6">
+            <PageHeader
+                title="Vessel Management"
+                description="View class of vessels and bow numbers"
+                onBack={() => router.push(basePath)}
+                Icon={Ship}
+            />
 
             <div className="flex border-b border-primary/30">
-                <button
-                    className={`py-3 px-4 text-xs font-bold transition-colors border-b-2 ${activeTab === 'class'
-                        ? 'border-accent text-primary'
-                        : 'border-transparent text-foreground-muted hover:text-foreground'
-                        }`}
-                    onClick={() => setActiveTab('class')}
-                >
-                    Class of Vessel
-                </button>
                 <button
                     className={`py-3 px-4 text-xs font-bold transition-colors border-b-2 ${activeTab === 'bow'
                         ? 'border-accent text-primary'
@@ -294,6 +295,15 @@ export function VesselsPageClient({ role }: { role: Role }) {
                     onClick={() => setActiveTab('bow')}
                 >
                     Bow Number
+                </button>
+                <button
+                    className={`py-3 px-4 text-xs font-bold transition-colors border-b-2 ${activeTab === 'class'
+                        ? 'border-accent text-primary'
+                        : 'border-transparent text-foreground-muted hover:text-foreground'
+                        }`}
+                    onClick={() => setActiveTab('class')}
+                >
+                    Class of Vessel
                 </button>
             </div>
 

@@ -32,6 +32,8 @@ interface ImportItemsModalProps {
     onImportComplete: () => void
     isHqInventory?: boolean
     isMonthlyReport?: boolean
+    month?: number
+    year?: number
     title?: string
     subtitle?: string
 }
@@ -45,6 +47,8 @@ export function ImportItemsModal({
     onImportComplete,
     isHqInventory,
     isMonthlyReport,
+    month,
+    year,
     title,
     subtitle
 }: ImportItemsModalProps) {
@@ -171,7 +175,7 @@ export function ImportItemsModal({
                         else if (headerName.includes('date installed') || headerName.includes('date issued') || headerName.includes('date acquired') || headerName === 'date_installed_issued' || headerName.includes('installed/issued')) columnMap.date_installed_issued = index
                         else if (headerName === 'ics' || headerName.includes('inventory custodian')) columnMap.ics = index
                         else if (headerName === 'par' || headerName.includes('property acknowledgement')) columnMap.par = index
-                        else if (headerName === 'quantity' || headerName === 'qty' || headerName === 'count' || headerName === 'qty.') columnMap.quantity = index
+                        else if (headerName === 'quantity' || headerName === 'qty' || headerName === 'count' || headerName === 'qty.' || headerName === 'balance on hand' || headerName === 'balance') columnMap.quantity = index
                     })
                     console.log('[DEBUG] Final columnMap:', columnMap)
                     break
@@ -457,6 +461,38 @@ export function ImportItemsModal({
                 return { ...item, equipment_id: equipment.id }
             })
 
+            // If it's HQ Inventory Monthly Report, use the sync-hq-inventory function
+            if (isHqInventory && isMonthlyReport) {
+                if (month === undefined || year === undefined) {
+                    throw new Error('Month and Year are required for HQ Monthly Report synchronization')
+                }
+
+                const syncPayload = {
+                    month,
+                    year,
+                    items: itemsWithEquipmentId.filter(item => item.status !== 'missed')
+                }
+
+                const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-hq-inventory`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(syncPayload)
+                })
+
+                if (!syncResponse.ok) {
+                    const errorData = await syncResponse.json()
+                    throw new Error(errorData.error || 'Failed to synchronize HQ inventory')
+                }
+
+                onImportComplete()
+                onClose()
+                return
+            }
+
+            // Standard import logic for everything else
             // Remove status property before sending to edge function
             const itemsToImport = itemsWithEquipmentId
                 .filter(item => item.status !== 'duplicate' && item.status !== 'missed')
@@ -700,8 +736,8 @@ export function ImportItemsModal({
                                                                     )}
                                                                 </>
                                                             )}
-                                                            {isAmmunitions && !isHqInventory && (
-                                                                <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Quantity</th>
+                                                            {isAmmunitions && (
+                                                                <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Balance on Hand</th>
                                                             )}
                                                         </tr>
                                                     </thead>
@@ -756,7 +792,7 @@ export function ImportItemsModal({
                                                                         )}
                                                                     </>
                                                                 )}
-                                                                {isAmmunitions && !isHqInventory && (
+                                                                {isAmmunitions && (
                                                                     <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.quantity ?? '-'}</td>
                                                                 )}
                                                             </tr>

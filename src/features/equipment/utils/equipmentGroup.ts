@@ -3,15 +3,15 @@ export type EquipmentCategory = 'WEAPONS' | 'COMMUNICATION' | 'NAVIGATIONAL' | '
 
 export function getEquipmentGroupFromUniqueCode(uniqueCode?: string): EquipmentGroup {
     if (!uniqueCode) return 'COMMUNICATION'
-    
+
     const prefix = uniqueCode.toUpperCase().substring(0, 2)
-    
+
     if (prefix === 'WE') return 'WEAPONS'
     if (prefix === 'IE') return 'ICT'
     if (prefix === 'NE') return 'NAVIGATIONAL'
     if (prefix === 'AM') return 'AMMUNITIONS'
     if (prefix === 'CE') return 'COMMUNICATION'
-    
+
     return 'COMMUNICATION'
 }
 
@@ -19,7 +19,7 @@ export function getCategoryFromEquipmentType(equipmentType: string | null, uniqu
     // If equipment_type is available, use it
     if (equipmentType) {
         const type = equipmentType.toLowerCase()
-        
+
         if (type === 'we' || type === 'weapon' || type.includes('weapon') || type.includes('weap')) {
             return 'WEAPONS'
         }
@@ -35,26 +35,26 @@ export function getCategoryFromEquipmentType(equipmentType: string | null, uniqu
         if (type === 'ce' || type === 'communication' || type.includes('comm')) {
             return 'COMMUNICATION'
         }
-        
+
         console.log('[getCategoryFromEquipmentType] Unknown equipment_type:', equipmentType)
     }
-    
+
     // Fall back to unique_code if equipment_type is null
     if (uniqueCode) {
         return getEquipmentGroupFromUniqueCode(uniqueCode)
     }
-    
+
     // Default to COMMUNICATION for unknown types
     return 'COMMUNICATION'
 }
 
 export function getEquipmentGroupLabel(group: EquipmentGroup): string {
     const labels: Record<EquipmentGroup, string> = {
-        'WEAPONS': 'Weapons',
-        'COMMUNICATION': 'Communication',
-        'NAVIGATIONAL': 'Navigational',
-        'ICT': 'ICT',
-        'AMMUNITIONS': 'Ammunitions',
+        'WEAPONS': 'Weapon Equipment',
+        'COMMUNICATION': 'Communication Equipment',
+        'NAVIGATIONAL': 'Navigational Equipment',
+        'ICT': 'IT Equipment',
+        'AMMUNITIONS': 'Ammunition',
     }
     return labels[group]
 }
