@@ -26,11 +26,11 @@ const formatDateForDisplay = (dateString: string | null): string => {
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return dateString
-    
+
     const day = String(date.getDate()).padStart(2, '0')
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const year = date.getFullYear()
-    
+
     return `${day}-${month}-${year}`
   } catch {
     return dateString
@@ -72,10 +72,10 @@ export function BowReportDetailsClient({
     if (items.length === 0) return {}
 
     const groups: Record<string, MonthlyReportItem[]> = {}
-    
+
     items.forEach(item => {
       let matchedEquipmentCode: string | null = null
-      
+
       // Match against equipment codes
       for (const equipCode of sortedEquipmentCodes) {
         if (item.unique_code.startsWith(equipCode)) {
@@ -83,7 +83,7 @@ export function BowReportDetailsClient({
           break
         }
       }
-      
+
       // If no match found, try extracting prefix from item unique code
       if (!matchedEquipmentCode) {
         const parts = item.unique_code.split('-')
@@ -91,7 +91,7 @@ export function BowReportDetailsClient({
           matchedEquipmentCode = parts[0]
         }
       }
-      
+
       // Only add items that match an equipment code
       if (matchedEquipmentCode && matchedEquipmentCode !== 'Uncategorized') {
         if (!groups[matchedEquipmentCode]) {
@@ -155,120 +155,127 @@ export function BowReportDetailsClient({
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href={reportsPath}
-          className="inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Reports
-        </Link>
-      </div>
-
-      {/* Title Card */}
-      <div className=" border border-foreground/5  bg-surface p-3 shadow-card">
-        <h1 className="text-[20px] font-semibold text-foreground mb-2">
-          {bowNumber} - {monthName} {currentYear}
-        </h1>
-        <p className="text-sm text-foreground-muted">
-          Monthly report details with {items.length} total items across {sortedGroupedEquipmentCodes.length} equipment categories
-        </p>
+      {/* Title Card / Header */}
+      <div className="bg-surface shadow-card border border-foreground/10 p-6">
+        <div className="flex items-start gap-4">
+          <Link
+            href={reportsPath}
+            className="flex items-center justify-center w-8 h-8 border border-foreground/10 hover:bg-foreground/5 text-foreground-muted hover:text-foreground transition-all mt-0.5"
+            title="Back to Bow Manifests"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-[28px] font-black text-foreground uppercase tracking-tighter leading-none mb-2">
+              {bowNumber}
+            </h1>
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 w-1.5 bg-primary animate-pulse" />
+              <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em]">
+                Monthly Report: {monthName} {currentYear} • {items.length} TOTAL ITEMS
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Items grouped by equipment */}
-      {sortedGroupedEquipmentCodes.map((equipmentCode) => {
-        const equipment = equipmentMap[equipmentCode]
-        const equipmentName = equipment?.name || equipmentCode
-        const equipmentType = equipment?.equipment_type
-        const isNavigational = equipmentType?.toLowerCase() === 'navigational'
-        const isAmmunition = isEquipmentAmmunition(equipmentCode)
+      <div className="overflow-hidden transition-all duration-300 ease-in-out max-h-[6000px] opacity-100">
+        <div className="border-t border-foreground/10 bg-foreground/[0.02]">
+          {sortedGroupedEquipmentCodes.map((equipmentCode) => {
+            const equipment = equipmentMap[equipmentCode]
+            const equipmentName = equipment?.name || equipmentCode
+            const equipmentType = equipment?.equipment_type
+            const isNavigational = equipmentType?.toLowerCase() === 'navigational'
+            const isAmmunition = isEquipmentAmmunition(equipmentCode)
 
-        return (
-          <div key={equipmentCode} className="border border-foreground/10 overflow-hidden">
-            <div className="bg-foreground/5 px-4 py-3 border-b border-foreground/10">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-foreground">{equipmentName}</h4>
-              <p className="text-xs text-foreground-muted">{equipmentCode} • {groupedItems[equipmentCode].length} items</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1500px]">
-                <thead className="bg-foreground/5">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Unique Code</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
-                    {isAmmunition ? (
-                      <>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Previous Report</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Expended</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Replenished</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Balance on Hand</th>
-                      </>
-                    ) : (
-                      <>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Brand</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Model</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Serial No.</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part No.</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Manufactured</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Installed/Issued</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last PMS</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last Repair</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
-                        {isNavigational && (
-                          <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Running Hours</th>
+            return (
+              <div key={equipmentCode} className="border-b border-foreground/10 last:border-b-0">
+                <div className="px-10 py-2 bg-primary/5 border-b border-foreground/10 flex items-center gap-3">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wide">{equipmentName}</span>
+                  <span className="text-xs text-foreground-muted">{equipmentCode} · {groupedItems[equipmentCode].length} items</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-foreground/[0.03]">
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap pl-10">Unique Code</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
+                        {isAmmunition ? (
+                          <>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Prev Report</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Expended</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Replenished</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">On Hand</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Brand</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Model</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Serial No.</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part No.</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Mfg Date</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Inst Date</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last PMS</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last Repair</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
+                            {isNavigational && (
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Hours</th>
+                            )}
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap w-48">Remarks</th>
+                          </>
                         )}
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Remarks</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-foreground/10">
-                  {groupedItems[equipmentCode].map((item) => (
-                    <tr key={item.id} className="hover:bg-foreground/3">
-                      <td className="px-3 py-2 text-xs text-foreground font-medium whitespace-nowrap">{item.unique_code || '-'}</td>
-                      <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.classification || '-'}</td>
-                      <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.nomenclature || '-'}</td>
-                      {isAmmunition ? (
-                        <>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.previous_report ?? '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.expended ?? '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.replenished ?? '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.balance_on_hand ?? '-'}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.brand || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.model || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.serial_number || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_manufactured)}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_installed_issued)}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_pms)}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_repair)}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.ics || '-'}</td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.par || '-'}</td>
-                          {isNavigational && (
-                            <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.running_hours || '-'}</td>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-foreground/10">
+                      {groupedItems[equipmentCode].map((item) => (
+                        <tr key={item.id} className="hover:bg-foreground/[0.03] transition-colors">
+                          <td className="px-4 py-2 text-xs text-foreground font-medium whitespace-nowrap pl-10">{item.unique_code || '-'}</td>
+                          <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.classification || '-'}</td>
+                          <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.nomenclature || '-'}</td>
+                          {isAmmunition ? (
+                            <>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.previous_report ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.expended ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.replenished ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.balance_on_hand ?? '-'}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.brand || '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.model || '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.serial_number || '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_manufactured)}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_installed_issued)}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_pms)}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_repair)}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.ics || '-'}</td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.par || '-'}</td>
+                              {isNavigational && (
+                                <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.running_hours || '-'}</td>
+                              )}
+                              <td className="px-4 py-2 text-xs whitespace-nowrap">
+                                <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-secondary/20 text-foreground">
+                                  {item.status || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-xs text-foreground whitespace-nowrap">{item.remarks || '-'}</td>
+                            </>
                           )}
-                          <td className="px-3 py-2 text-xs">
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
-                              {item.status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-foreground whitespace-nowrap">{item.remarks || '-'}</td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

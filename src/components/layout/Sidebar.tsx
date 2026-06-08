@@ -12,6 +12,21 @@ export function Sidebar({ role }: { role: Role }) {
     const pathname = usePathname()
     const [showLogoutModal, setShowLogoutModal] = useState(false)
 
+    // Clear monthly report state when navigating to other main tabs
+    React.useEffect(() => {
+        const isMonthlyReport = pathname.includes('/monthly-report')
+        if (!isMonthlyReport) {
+            const keysToClear = [
+                'lcf_monthly_report_month',
+                'lcf_monthly_report_year',
+                'lcf_monthly_report_bowFilter',
+                'lcf_monthly_report_statusFilter',
+                'lcf_monthly_report_hasAction'
+            ]
+            keysToClear.forEach(key => sessionStorage.removeItem(key))
+        }
+    }, [pathname])
+
     const handleLogout = async () => {
         await signOut()
     }
