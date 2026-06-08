@@ -542,7 +542,3 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/sync-check-monthly-report/index.ts"
 
-[functions.clear-monthly-report]
-enabled = true
-verify_jwt = false
-entrypoint = "./functions/clear-monthly-report/index.ts"
