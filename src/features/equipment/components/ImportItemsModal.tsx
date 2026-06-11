@@ -24,32 +24,48 @@ interface ImportItem {
     date_last_repair?: string
     running_hours?: number | null
     remarks?: string
-    status?: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed'
+    status?: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed' | 'internal_duplicate'
 }
 
-interface ParsedFileInfo {
-    slug: string
-    month: number // 1-12
-    year: number
-    month_name: string
+export interface ParsedFileInfo {
+    slug?: string
+    month?: number // 1-12
+    year?: number
+    month_name?: string
+    bow_number?: string
+    isMasterlist?: boolean
+    isHqInventory?: boolean
 }
 
 /**
- * Parse filename to extract slug, month, and year.
- * Format: "HQSLUG-MMYYYY.xlsx" -> slug, month (1-12), year
+ * Parse filename to extract slug, month, and year, or bow number for masterlist.
+ * Formats: 
+ * 1. "HQSLUG-MMYYYY.xlsx" -> slug, month (1-12), year
+ * 2. "BOWNUMBER-masterlist.xlsx" -> bow_number, isMasterlist
  */
 function parseFilenameInfo(filename: string): ParsedFileInfo | null {
-    const match = filename.match(/^([A-Za-z0-9-]+)-(\d{2})(\d{4})\.(xlsx|xls)$/i)
-    if (!match) return null
-    const [, slug, monthStr, yearStr] = match
-    const month = parseInt(monthStr, 10)
-    const year = parseInt(yearStr, 10)
-    if (month < 1 || month > 12) return null
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ]
-    return { slug, month, year, month_name: monthNames[month - 1] }
+    // Check for monthly report format: SLUG-MMYYYY
+    const reportMatch = filename.match(/^([A-Za-z0-9-]+)-(\d{2})(\d{4})\.(xlsx|xls)$/i)
+    if (reportMatch) {
+        const [, slug, monthStr, yearStr] = reportMatch
+        const month = parseInt(monthStr, 10)
+        const year = parseInt(yearStr, 10)
+        if (month < 1 || month > 12) return null
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ]
+        return { slug, month, year, month_name: monthNames[month - 1] }
+    }
+
+    // Check for masterlist format: BOW-masterlist
+    const masterlistMatch = filename.match(/^([A-Za-z0-9-]+)-masterlist\.(xlsx|xls)$/i)
+    if (masterlistMatch) {
+        const [, bow_number] = masterlistMatch
+        return { bow_number, isMasterlist: true }
+    }
+
+    return null
 }
 
 interface ImportItemsModalProps {
@@ -58,7 +74,7 @@ interface ImportItemsModalProps {
     equipmentId?: string
     equipmentName?: string
     equipmentUniqueCode?: string
-    onImportComplete: () => void
+    onImportComplete: (info?: ParsedFileInfo | null) => void
     isHqInventory?: boolean
     isMonthlyReport?: boolean
     month?: number
@@ -86,6 +102,7 @@ export function ImportItemsModal({
     const [isProcessing, setIsProcessing] = useState(false)
     const [isImporting, setIsImporting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [isSuccess, setIsSuccess] = useState(false)
     const [equipments, setEquipments] = useState<Record<string, { id: string; name: string; equipment_type: string | null }>>({})
     const [parsedFileInfo, setParsedFileInfo] = useState<ParsedFileInfo | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -101,6 +118,7 @@ export function ImportItemsModal({
             setError(null)
             setIsProcessing(false)
             setIsImporting(false)
+            setIsSuccess(false)
             setParsedFileInfo(null)
             if (fileInputRef.current) {
                 fileInputRef.current.value = ''
@@ -149,10 +167,30 @@ export function ImportItemsModal({
             // For HQ Monthly Report, parse filename to extract month/year automatically
             if (isHqInventory && isMonthlyReport) {
                 const info = parseFilenameInfo(selectedFile.name)
-                if (!info) {
-                    setError('Invalid filename format. Expected format: HQSLUG-MMYYYY.xlsx (e.g. HQ-052026.xlsx)')
+                if (!info || !info.month) {
+                    setError('Invalid filename format.')
                     return
                 }
+                if (info) info.isHqInventory = isHqInventory
+                setParsedFileInfo(info)
+            }
+
+            // For Masterlist import, enforce (Bow number)-masterlist.xlsx
+            if (!isMonthlyReport && !isHqInventory) {
+                const info = parseFilenameInfo(selectedFile.name)
+                if (!info || !info.isMasterlist) {
+                    setError('Invalid filename format.')
+                    return
+                }
+                if (info) info.isHqInventory = isHqInventory
+                setParsedFileInfo(info)
+            }
+
+            if (!isMonthlyReport && isHqInventory) {
+                // For HQ Masterlist, naming might be flexible or follow a pattern
+                // We'll just allow it but still try to parse if possible
+                const info = parseFilenameInfo(selectedFile.name) || {}
+                if (info) info.isHqInventory = isHqInventory
                 setParsedFileInfo(info)
             }
 
@@ -414,12 +452,31 @@ export function ImportItemsModal({
             const existingItemsMap = new Map(existingItems?.map(item => [item.unique_code, item]) || [])
             console.log('Existing items count:', existingItemsMap.size)
 
+            // Check for internal duplicates in the file
+            const counts = new Map<string, number>()
+            items.forEach(item => {
+                if (item.unique_code) {
+                    counts.set(item.unique_code, (counts.get(item.unique_code) || 0) + 1)
+                }
+            })
+
+            const repeatedCodes = Array.from(counts.entries())
+                .filter(([_, count]) => count > 1)
+                .map(([code, _]) => code)
+
+            if (repeatedCodes.length > 0) {
+                setError(`Duplicate Unique Code: The following codes appear multiple times in the file: ${repeatedCodes.join(', ')}`)
+            }
+
             // Mark statuses for items from file
             const processedItems: ImportItem[] = items.map(item => {
+                const isInternalDuplicate = counts.get(item.unique_code)! > 1
                 const exists = existingItemsMap.has(item.unique_code)
-                let status: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed'
+                let status: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed' | 'internal_duplicate'
 
-                if (exists) {
+                if (isInternalDuplicate) {
+                    status = 'internal_duplicate'
+                } else if (exists) {
                     status = 'duplicate'
                 } else {
                     status = isMonthlyReport ? 'not_on_masterlist' : 'new'
@@ -524,8 +581,8 @@ export function ImportItemsModal({
             // If it's HQ Inventory Monthly Report, use the sync-hq-inventory function
             if (isHqInventory && isMonthlyReport) {
                 // Prefer month/year parsed from filename; fall back to props if not available
-                const reportMonth = parsedFileInfo ? parsedFileInfo.month - 1 : month
-                const reportYear = parsedFileInfo ? parsedFileInfo.year : year
+                const reportMonth = (parsedFileInfo && parsedFileInfo.month !== undefined) ? parsedFileInfo.month - 1 : month
+                const reportYear = (parsedFileInfo && parsedFileInfo.year !== undefined) ? parsedFileInfo.year : year
 
                 if (reportMonth === undefined || reportYear === undefined) {
                     throw new Error('Month and Year are required for HQ Monthly Report synchronization')
@@ -534,7 +591,7 @@ export function ImportItemsModal({
                 const syncPayload = {
                     month: reportMonth, // sync-hq-inventory expects 0-indexed month
                     year: reportYear,
-                    items: itemsWithEquipmentId.filter(item => item.status !== 'missed')
+                    items: itemsWithEquipmentId.filter(item => item.status !== 'missed' && item.status !== 'internal_duplicate')
                 }
 
                 const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-hq-inventory`, {
@@ -551,7 +608,7 @@ export function ImportItemsModal({
                     throw new Error(errorData.error || 'Failed to synchronize HQ inventory')
                 }
 
-                onImportComplete()
+                onImportComplete(parsedFileInfo)
                 onClose()
                 return
             }
@@ -559,7 +616,7 @@ export function ImportItemsModal({
             // Standard import logic for everything else
             // Remove status property before sending to edge function
             const itemsToImport = itemsWithEquipmentId
-                .filter(item => item.status !== 'duplicate' && item.status !== 'missed')
+                .filter(item => item.status !== 'duplicate' && item.status !== 'missed' && item.status !== 'internal_duplicate')
                 .map(({ status, ...item }) => item)
 
             console.log('Sending items to import:', itemsToImport.length)
@@ -592,7 +649,7 @@ export function ImportItemsModal({
                 throw new Error(errorData.error || 'Failed to import items')
             }
 
-            onImportComplete()
+            onImportComplete(parsedFileInfo)
             onClose()
         } catch (err: any) {
             setError(err.message || 'Failed to import items')
@@ -605,6 +662,7 @@ export function ImportItemsModal({
         setFile(null)
         setParsedData([])
         setError(null)
+        setIsSuccess(false)
         if (fileInputRef.current) {
             fileInputRef.current.value = ''
         }
@@ -652,6 +710,11 @@ export function ImportItemsModal({
                                     'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Acquired' :
                                     'Unique Code, Classification, Nomenclature, Brand, Model, Serial Number, Part Number, Date Manufactured, Date Installed/Issued, ICS, PAR'}
                             </p>
+                            {!equipmentId && !isMonthlyReport && !isHqInventory && (
+                                <p className="text-xs text-secondary mb-4 font-medium">
+                                    Filename must follow format: <span className="font-mono">(Bow number)-masterlist.xlsx</span> (e.g. PS176-masterlist.xlsx)
+                                </p>
+                            )}
                             {!equipmentId && !isMonthlyReport && (
                                 <p className="text-xs text-secondary mb-4 font-medium">
                                     Items will be auto-categorized by their unique codes
@@ -681,12 +744,17 @@ export function ImportItemsModal({
                                         <FileSpreadsheet className="w-5 h-5 text-foreground" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-foreground">{file.name}</p>
+                                        <p className="text-sm font-medium text-foreground">{file?.name}</p>
                                         <div className="flex gap-2 text-xs">
-                                            <span className="text-foreground-muted">{(file.size / 1024).toFixed(2)} KB</span>
-                                            {parsedFileInfo && (
+                                            <span className="text-foreground-muted">{file ? (file.size / 1024).toFixed(2) : '0'} KB</span>
+                                            {parsedFileInfo && parsedFileInfo.month_name && (
                                                 <span className="text-secondary font-bold uppercase tracking-wider">
                                                     • Detected Period: {parsedFileInfo.month_name} {parsedFileInfo.year}
+                                                </span>
+                                            )}
+                                            {parsedFileInfo && parsedFileInfo.bow_number && (
+                                                <span className="text-secondary font-bold uppercase tracking-wider">
+                                                    • Detected Bow: {parsedFileInfo.bow_number}
                                                 </span>
                                             )}
                                         </div>
@@ -717,6 +785,12 @@ export function ImportItemsModal({
                                             ? `${parsedData.filter(item => item.status === 'duplicate').length} synced items`
                                             : `${parsedData.filter(item => item.status === 'new').length} items ready to import`}
                                     </div>
+                                    {parsedData.some(item => item.status === 'internal_duplicate') && (
+                                        <div className="flex items-center gap-2 text-foreground-muted">
+                                            <AlertCircle className="w-4 h-4 text-error" />
+                                            {parsedData.filter(item => item.status === 'internal_duplicate').length} duplicate unique codes
+                                        </div>
+                                    )}
                                     {parsedData.some(item => item.status === 'duplicate') && !isMonthlyReport && (
                                         <div className="flex items-center gap-2 text-foreground-muted">
                                             <AlertCircle className="w-4 h-4 text-error" />
@@ -819,16 +893,16 @@ export function ImportItemsModal({
                                                     </thead>
                                                     <tbody className="divide-y divide-foreground/10">
                                                         {groupedItems[equipmentCode].map((item, index) => (
-                                                            <tr key={index} className={`hover:bg-foreground/3 ${item.status === 'duplicate' ? 'bg-error-bg/30' : item.status === 'missed' ? 'bg-error-bg/10' : ''}`}>
+                                                            <tr key={index} className={`hover:bg-foreground/3 ${item.status === 'duplicate' || item.status === 'internal_duplicate' ? 'bg-error-bg/30' : item.status === 'missed' ? 'bg-error-bg/10' : ''}`}>
                                                                 <td className="px-3 py-3 text-sm whitespace-nowrap">
-                                                                    {item.status === 'duplicate' ? (
+                                                                    {item.status === 'duplicate' || item.status === 'internal_duplicate' ? (
                                                                         isMonthlyReport ? (
                                                                             <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
                                                                                 Synced
                                                                             </span>
                                                                         ) : (
                                                                             <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
-                                                                                Duplicate
+                                                                                {item.status === 'internal_duplicate' ? 'Duplicate Unique Code' : 'Duplicate'}
                                                                             </span>
                                                                         )
                                                                     ) : item.status === 'new' ? (
@@ -886,12 +960,14 @@ export function ImportItemsModal({
 
                 {parsedData.length > 0 && (
                     <div className="p-3 border-t border-foreground/10 flex flex-col gap-2">
-                        {isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed') && (
+                        {(isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed')) || parsedData.some(item => item.status === 'internal_duplicate') ? (
                             <div className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-widest bg-error-bg/10 p-2 mb-1">
                                 <AlertCircle className="w-4 h-4" />
-                                Import blocked: Resolve discrepancies before synchronization
+                                {parsedData.some(item => item.status === 'internal_duplicate')
+                                    ? 'Import blocked: Duplicate unique codes found in file'
+                                    : 'Import blocked: Resolve discrepancies before synchronization'}
                             </div>
-                        )}
+                        ) : null}
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={onClose}
@@ -902,7 +978,7 @@ export function ImportItemsModal({
                             </button>
                             <button
                                 onClick={handleImport}
-                                disabled={isImporting || (isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed'))}
+                                disabled={isImporting || (isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed')) || parsedData.some(item => item.status === 'internal_duplicate')}
                                 className="px-6 py-2.5 bg-accent text-white hover:bg-secondary-hover disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
                             >
                                 {isImporting ? 'Importing...' : 'Confirm Import'}

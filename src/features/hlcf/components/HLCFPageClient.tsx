@@ -12,8 +12,8 @@ import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Package } from 'lucide-react'
 
-type HLCFTab = 'hq' | 'logs' | 'masterlist' | 'reports'
-const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports', 'logs']
+type HLCFTab = 'hq' | 'masterlist' | 'reports'
+const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports']
 
 export function HLCFPageClient({ basePath }: { basePath: string }) {
     const router = useRouter()
@@ -185,15 +185,6 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                 >
                     Reports
                 </button>
-                <button
-                    onClick={() => setActiveTab('logs')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'logs'
-                        ? 'bg-primary text-background'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                        }`}
-                >
-                    History Logs
-                </button>
             </div>
 
             {/* Content Area */}
@@ -253,12 +244,6 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                         <ReportsTab />
                     </div>
                 )}
-
-                {activeTab === 'logs' && (
-                    <div className="py-2">
-                        <HistoryLogs />
-                    </div>
-                )}
             </div>
 
             <ImportItemsModal
@@ -277,6 +262,6 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                     setHqRefreshKey(k => k + 1)
                 }}
             />
-        </div>
+        </div >
     )
 }

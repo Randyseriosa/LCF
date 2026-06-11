@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 
 import { Filter, FileText, Trash2, AlertTriangle } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 import { useClassesOfVessel, type ClassOfVessel } from '@/hooks/useClassesOfVessel'
 
 const MONTHS = [
@@ -24,6 +25,7 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
     const [selectedClass, setSelectedClass] = useState<string | null>(null)
     const [isClearing, setIsClearing] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+    const [showSuccessModal, setShowSuccessModal] = useState(false)
 
 
     const handleClearReports = async () => {
@@ -44,7 +46,7 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
             if (!res.ok) {
                 alert('Failed to clear reports: ' + (data.error || res.statusText))
             } else {
-                alert('Monthly reports cleared successfully')
+                setShowSuccessModal(true)
                 setShowConfirmDialog(false)
             }
         } catch (err) {
@@ -169,6 +171,13 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
                 <Trash2 className="w-4 h-4" />
                 <span className="font-medium">{isClearing ? 'Clearing...' : 'Clear All Reports'}</span>
             </button>
+
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                title="REPORTS CLEARED"
+                message="All monthly report data has been successfully removed from the system."
+            />
         </div>
     )
 }

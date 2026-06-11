@@ -6,6 +6,7 @@ import { useVesselsWithReportStatus } from '@/hooks/useVesselsWithReportStatus'
 import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText, Search, X } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 
 
 const MONTHS = [
@@ -46,6 +47,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
     })
     const [isClearing, setIsClearing] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+    const [showSuccessModal, setShowSuccessModal] = useState(false)
 
     const { vessels, loading, error, refresh } = useVesselsWithReportStatus({
         month: selectedMonth,
@@ -99,7 +101,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
             if (!res.ok) {
                 alert('Failed to clear reports: ' + (data.error || res.statusText))
             } else {
-                alert('Monthly reports cleared successfully')
+                setShowSuccessModal(true)
                 setShowConfirmDialog(false)
                 refresh()
             }
@@ -136,7 +138,7 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
     return (
         <div className="space-y-6">
             {/* ── Status Summary ── */}
-            {hasAction && !loading && !error && vessels.length > 0 && (
+            {!loading && !error && vessels.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-foreground/10 bg-surface shadow-card">
                     <div className="p-4 border-b md:border-b-0 md:border-r border-foreground/10">
                         <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] mb-1">Bow</p>
@@ -374,6 +376,13 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                 <Trash2 className="w-4 h-4" />
                 <span className="font-medium">{isClearing ? 'Clearing...' : 'Clear All Reports'}</span>
             </button>
+
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                title="REPORTS CLEARED"
+                message="All monthly report data has been successfully removed from the system."
+            />
         </div>
     )
 }

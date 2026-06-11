@@ -215,14 +215,16 @@ Deno.serve(async (req: Request) => {
       // Infer vessel_id from unique_code if not explicitly provided
       let itemVesselId = vessel_id || null
       if (!itemVesselId && item.unique_code) {
-        const parts = item.unique_code.split('-')
-        if (parts.length >= 2) {
-          // Look for bow number in the unique code parts (e.g. TYPE_CODE-BOW_NUMBER-SEQUENCE)
-          for (const part of parts) {
-            if (vesselMap[part]) {
-              itemVesselId = vesselMap[part]
-              break
-            }
+        // Try to find the bow number in the unique code
+        // Sort bow numbers by length descending to match most specific first
+        const sortedBows = Object.keys(vesselMap).sort((a, b) => b.length - a.length)
+        for (const bow of sortedBows) {
+          // Use regex to match the bow number as a separate part of the unique code
+          const escapedBow = bow.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const regex = new RegExp(`(^|-)${escapedBow}(-|$)`)
+          if (regex.test(item.unique_code)) {
+            itemVesselId = vesselMap[bow]
+            break
           }
         }
       }

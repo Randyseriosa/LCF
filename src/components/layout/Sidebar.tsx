@@ -47,8 +47,8 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: '/admin', icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: '/admin/global-inventory-view', icon: FileText },
-                { name: 'Items Displacement', href: '/admin/items-displacement', icon: ArrowLeftRight },
                 { name: 'Monthly Report', href: '/admin/monthly-report', icon: FileBarChart2 },
+                { name: 'Items Displacement', href: '/admin/items-displacement', icon: ArrowLeftRight },
                 { name: 'Retired Items', href: '/admin/retired-items', icon: Archive },
                 { name: 'Settings', href: '/admin/settings', icon: Settings },
                 { name: 'Users', href: '/admin/users', icon: Users }
@@ -59,8 +59,8 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
-                { name: 'Items Displacement', href: `/${role}/items-displacement`, icon: ArrowLeftRight },
                 { name: 'Monthly Report', href: `/${role}/monthly-report`, icon: FileBarChart2 },
+                { name: 'Items Displacement', href: `/${role}/items-displacement`, icon: ArrowLeftRight },
                 { name: 'Retired Items', href: `/${role}/retired-items`, icon: Archive },
                 { name: 'Settings', href: `/${role}/settings`, icon: Settings }
             )

@@ -10,7 +10,8 @@ import { useEquipmentUniqueCode } from '../hooks/useEquipmentUniqueCode'
 import { useEquipmentItems, Item } from '../hooks/useEquipmentItems'
 import { Plus, Pencil, Trash2, X, Settings, ArrowLeft, Wrench, ShieldCheck } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { ImportItemsModal } from './ImportItemsModal'
+import { ImportItemsModal, type ParsedFileInfo } from './ImportItemsModal'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 import { getEquipmentGroupFromUniqueCode, getEquipmentGroupLabel, isNavigationalGroup, EquipmentGroup } from '../utils/equipmentGroup'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
 
@@ -45,6 +46,8 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
     const { items, loading: itemsLoading, error: itemsError } = useEquipmentItems(selectedEquipment?.id || null)
     const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false)
     const [isClearing, setIsClearing] = useState(false)
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+    const [successModalData, setSuccessModalData] = useState<{ title: string, message: string }>({ title: '', message: '' })
 
     // Group items by equipment group
     const groupedItems = useMemo(() => {
@@ -297,9 +300,15 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                     equipmentId={selectedEquipment.id}
                     equipmentName={selectedEquipment.name}
                     equipmentUniqueCode={selectedEquipment.unique_code}
-                    onImportComplete={() => {
-                        // Refresh data if needed
+                    onImportComplete={(info) => {
                         setIsImportModalOpen(false)
+                        setSuccessModalData({
+                            title: 'Import Successful',
+                            message: info?.isMasterlist
+                                ? `Equipments for ${info.bow_number} have been updated successfully.`
+                                : 'The equipment items have been imported and synchronized.'
+                        })
+                        setIsSuccessModalOpen(true)
                     }}
                 />
             </div >
@@ -443,9 +452,23 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                 equipmentId={importModalEquipmentId || ''}
                 equipmentName={importModalEquipmentName || 'All Equipments'}
                 equipmentUniqueCode={importModalEquipmentUniqueCode || undefined}
-                onImportComplete={() => {
+                onImportComplete={(info) => {
                     setIsImportModalOpen(false)
+                    setSuccessModalData({
+                        title: 'Import Successful',
+                        message: info?.isMasterlist
+                            ? `Equipments for ${info.bow_number} have been updated successfully.`
+                            : 'The equipment items have been imported and synchronized.'
+                    })
+                    setIsSuccessModalOpen(true)
                 }}
+            />
+
+            <SuccessModal
+                isOpen={isSuccessModalOpen}
+                onClose={() => setIsSuccessModalOpen(false)}
+                title={successModalData.title}
+                message={successModalData.message}
             />
 
             {/* ADD/EDIT MODAL */}

@@ -41,7 +41,7 @@ interface MonthlyReportItem {
   replenished?: number | null
   balance_on_hand?: number | null
   section?: string // Track which section the item came from
-  syncStatus?: 'sync' | 'not_on_masterlist' | 'mismatched'
+  syncStatus?: 'sync' | 'not_on_masterlist' | 'mismatched' | 'internal_duplicate'
 }
 
 interface Equipment {
@@ -62,6 +62,7 @@ interface SyncCheckResult {
   sync: MonthlyReportItem[]
   notOnMasterlist: MonthlyReportItem[]
   mismatched: MonthlyReportItem[]
+  internalDuplicates: MonthlyReportItem[]
   missedItems: MissedItem[]
   vesselId: string | null
 }
@@ -170,7 +171,31 @@ export function ImportPageClient() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const renderCount = useRef(0)
 
-  const { imports: recentImports, loading: loadingRecent, error: errorRecent, refresh: refreshRecentImports } = useRecentImports(5)
+  const { imports: recentImports, loading: loadingRecent, error: errorRecent, refresh: refreshRecentImports } = useRecentImports(10)
+
+  // Filter recent imports based on business rules:
+  // 1. Max 10 list total.
+  // 2. Only List 10 when the imported date is within 7 days (list only those within a week).
+  // 3. If the most recent imported files are on 8th day or older, show only the most recent 5.
+  const displayedImports = useMemo(() => {
+    if (!recentImports || recentImports.length === 0) return []
+
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    // Since recentImports is ordered desc by created_at, first item is the most recent
+    const latestImportDate = new Date(recentImports[0].created_at)
+
+    if (latestImportDate >= oneWeekAgo) {
+      // Rule: List up to 10 that are within the week
+      return recentImports
+        .filter(item => new Date(item.created_at) >= oneWeekAgo)
+        .slice(0, 10)
+    } else {
+      // Rule: If most recent is on 8th day or older, show only the most recent 5
+      return recentImports.slice(0, 5)
+    }
+  }, [recentImports])
 
   // Check if monthly report already exists for this vessel/month
   const { status: reportStatus, loading: checkingReportStatus } = useMonthlyReportStatus({
@@ -296,7 +321,7 @@ export function ImportPageClient() {
 
       if (vesselError || !vessel) {
         setVesselId(null)
-        setSyncCheckResults({ sync: [], notOnMasterlist: items, mismatched: [], missedItems: [], vesselId: null })
+        setSyncCheckResults({ sync: [], notOnMasterlist: items, mismatched: [], internalDuplicates: [], missedItems: [], vesselId: null })
         return
       }
 
@@ -351,10 +376,27 @@ export function ImportPageClient() {
           }
         })
 
+      // Check for internal duplicates in the file
+      const counts = new Map<string, number>()
+      items.forEach(item => {
+        if (item.unique_code) {
+          counts.set(item.unique_code, (counts.get(item.unique_code) || 0) + 1)
+        }
+      })
+
+      const repeatedCodes = Array.from(counts.entries())
+        .filter(([_, count]) => count > 1)
+        .map(([code, _]) => code)
+
+      if (repeatedCodes.length > 0) {
+        setError(`Duplicate Unique Code: The following codes appear multiple times in the file: ${repeatedCodes.join(', ')}`)
+      }
+
       const reportUniqueCodes = new Set(items.map(i => i.unique_code))
       const sync: MonthlyReportItem[] = []
       const notOnMasterlist: MonthlyReportItem[] = []
       const mismatched: MonthlyReportItem[] = []
+      const internalDuplicates: MonthlyReportItem[] = []
 
       let previousReportItemsMap: Map<string, number> | null = null
 
@@ -393,6 +435,12 @@ export function ImportPageClient() {
 
       items.forEach(item => {
         const master = masterlistMap.get(item.unique_code)
+        const isInternalDuplicate = counts.get(item.unique_code)! > 1
+
+        if (isInternalDuplicate) {
+          internalDuplicates.push({ ...item, syncStatus: 'internal_duplicate' })
+          return
+        }
 
         if (!master) {
           notOnMasterlist.push({ ...item, syncStatus: 'not_on_masterlist' })
@@ -452,8 +500,8 @@ export function ImportPageClient() {
         }
       })
 
-      setSyncCheckResults({ sync, notOnMasterlist, mismatched, missedItems, vesselId: vessel.id })
-      setPreviewData([...sync, ...mismatched, ...notOnMasterlist])
+      setSyncCheckResults({ sync, notOnMasterlist, mismatched, internalDuplicates, missedItems, vesselId: vessel.id })
+      setPreviewData([...sync, ...mismatched, ...notOnMasterlist, ...internalDuplicates])
     } catch (err: any) {
       setError('Failed to perform sync check: ' + (err?.message || 'Unknown error'))
     } finally {
@@ -620,7 +668,7 @@ export function ImportPageClient() {
       // Parse filename to extract BOW, month, and year
       const parsedInfo = parseFilename(selectedFile.name)
       if (!parsedInfo) {
-        setError('Invalid filename format. Expected format: PC370-052026.xlsx')
+        setError('Invalid filename format.')
         return
       }
 
@@ -678,6 +726,12 @@ export function ImportPageClient() {
 
   const handleImport = async () => {
     if (!file) return
+
+    // Block import if there are internal duplicates
+    if (syncCheckResults?.internalDuplicates && syncCheckResults.internalDuplicates.length > 0) {
+      setError('Cannot import: Duplicate unique codes detected in the file. Please resolve them before importing.')
+      return
+    }
 
     setIsImporting(true)
     setError(null)
@@ -882,7 +936,7 @@ export function ImportPageClient() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowPreview(false)}
+                  onClick={handleReset}
                   className="text-sm text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Upload different file
@@ -911,7 +965,7 @@ export function ImportPageClient() {
             <div className="flex gap-3">
               <button
                 onClick={handleImport}
-                disabled={isImporting || Boolean(syncCheckResults && (syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.mismatched.length > 0))}
+                disabled={isImporting || Boolean(syncCheckResults && (syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.mismatched.length > 0 || syncCheckResults.internalDuplicates.length > 0))}
                 className="w-fit mx-auto block bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
               >
                 {isImporting ? 'Importing...' : 'Confirm Import'}
@@ -990,12 +1044,16 @@ export function ImportPageClient() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-foreground/10">
-                      {groupedItems[equipmentCode].slice(0, 10).map((item, index) => (
-                        <tr key={index} className={`hover:bg-foreground/3 ${item.syncStatus === 'not_on_masterlist' ? 'bg-error-bg/30' : item.syncStatus === 'mismatched' ? 'bg-warning-bg' : ''}`}>
+                      {groupedItems[equipmentCode].map((item, index) => (
+                        <tr key={index} className={`hover:bg-foreground/3 ${item.syncStatus === 'not_on_masterlist' || item.syncStatus === 'internal_duplicate' ? 'bg-error-bg/30' : item.syncStatus === 'mismatched' ? 'bg-warning-bg' : ''}`}>
                           <td className="px-3 py-3 text-sm whitespace-nowrap">
                             {item.syncStatus === 'sync' ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
                                 Synced
+                              </span>
+                            ) : item.syncStatus === 'internal_duplicate' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error text-white uppercase tracking-wider">
+                                Duplicate in File
                               </span>
                             ) : item.syncStatus === 'not_on_masterlist' ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
@@ -1054,11 +1112,7 @@ export function ImportPageClient() {
                     </tbody>
                   </table>
                 </div>
-                {groupedItems[equipmentCode].length > 10 && (
-                  <div className="px-4 py-3 text-center text-sm text-foreground-muted bg-foreground/5">
-                    Showing first 10 of {groupedItems[equipmentCode].length} items
-                  </div>
-                )}
+
               </div>
             )
           })}
@@ -1080,6 +1134,12 @@ export function ImportPageClient() {
                 <Check className="w-4 h-4 text-secondary" />
                 <span className="text-sm font-medium text-foreground">{syncCheckResults.sync.length} Synced</span>
               </div>
+              {syncCheckResults.internalDuplicates.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-error text-white">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium uppercase tracking-wider">{syncCheckResults.internalDuplicates.length} Duplicate in File</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 px-3 py-2 bg-warning-bg">
                 <AlertCircle className="w-4 h-4 text-warning" />
                 <span className="text-sm font-medium text-warning">{syncCheckResults.mismatched.length} Mismatched</span>
@@ -1152,7 +1212,7 @@ export function ImportPageClient() {
             <AlertCircle className="w-4 h-4" />
             <span>{errorRecent}</span>
           </div>
-        ) : recentImports.length > 0 ? (
+        ) : displayedImports.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -1164,7 +1224,7 @@ export function ImportPageClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-foreground/5">
-                {recentImports.map((item) => (
+                {displayedImports.map((item) => (
                   <tr key={item.id} className="hover:bg-foreground/5 transition-colors">
                     <td className="py-3 px-2 text-sm font-semibold text-foreground">{item.vessel_name}</td>
                     <td className="py-3 px-2 text-sm text-foreground">

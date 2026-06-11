@@ -1,6 +1,4 @@
-import { PageHeader } from '@/components/layout/PageHeader'
-import { ArrowLeftRight } from 'lucide-react'
-import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTransfer'
+import { ItemsDisplacementClient } from '@/features/hlcf/components/ItemsDisplacementClient'
 
 export const metadata = {
     title: 'Items Displacement | Admin',
@@ -8,16 +6,5 @@ export const metadata = {
 }
 
 export default function ItemsDisplacementPage() {
-    return (
-        <div className="space-y-6">
-            <PageHeader
-                title="Items Displacement"
-                description="Transfer Items"
-                Icon={ArrowLeftRight}
-            />
-            <div className="bg-surface border border-foreground/5 shadow-card p-6">
-                <BowInventoryTransfer />
-            </div>
-        </div>
-    )
+    return <ItemsDisplacementClient />
 }

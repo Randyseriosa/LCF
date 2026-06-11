@@ -51,7 +51,7 @@ export function HistoryLogs() {
     return (
         <div className="bg-surface border border-foreground/5 shadow-card p-6 w-full">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="text-foreground font-semibold text-[16px] uppercase tracking-widest">Recent Transfers</h3>
+                <h3 className="text-foreground font-semibold text-[16px] uppercase tracking-widest">History of Transfer</h3>
             </div>
 
             {loading ? (
@@ -71,8 +71,8 @@ export function HistoryLogs() {
                                 <th className="px-4 py-3">Item Name</th>
                                 <th className="px-4 py-3">From Bow</th>
                                 <th className="px-4 py-3">To Bow</th>
-                                <th className="px-4 py-3">Old Code</th>
-                                <th className="px-4 py-3 text-primary">New Code</th>
+                                <th className="px-4 py-3 text-error">Old Code</th>
+                                <th className="px-4 py-3 text-success">New Code</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -90,10 +90,10 @@ export function HistoryLogs() {
                                     <td className="px-4 py-3 text-xs text-foreground font-medium">
                                         {log.new_vessel?.bow_number || 'Unknown'}
                                     </td>
-                                    <td className="px-4 py-3 text-xs text-foreground-muted font-mono">
+                                    <td className="px-4 py-3 text-xs text-error font-mono">
                                         {log.old_unique_code || '-'}
                                     </td>
-                                    <td className="px-4 py-3 text-xs text-primary font-mono font-bold">
+                                    <td className="px-4 py-3 text-xs text-success font-mono font-bold">
                                         {log.new_unique_code || '-'}
                                     </td>
                                 </tr>

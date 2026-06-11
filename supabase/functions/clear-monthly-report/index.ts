@@ -32,14 +32,40 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}))
     const { vesselSlug, month, year } = body
 
-    if (!vesselSlug || month === undefined || year === undefined) {
-      return errorResponse('vesselSlug, month, and year are required', 400)
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    // If no parameters are provided, clear ALL monthly reports
+    if (!vesselSlug && month === undefined && year === undefined) {
+      console.log('Clearing ALL monthly reports...')
+
+      // Delete all monthly report items first (though cascade should handle it)
+      await supabaseAdmin
+        .from('monthly_report_items')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      const { error: deleteAllError } = await supabaseAdmin
+        .from('monthly_reports')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      if (deleteAllError) {
+        console.error('Error clearing all reports:', deleteAllError)
+        return errorResponse(`Failed to clear all reports: ${deleteAllError.message}`, 500)
+      }
+
+      return successResponse({
+        message: 'All monthly reports cleared successfully',
+        deleted: true
+      })
+    }
+
+    if (!vesselSlug || month === undefined || year === undefined) {
+      return errorResponse('vesselSlug, month, and year are required for single report clearing', 400)
+    }
 
     // 1. Get Vessel ID
     const { data: vessel } = await supabaseAdmin

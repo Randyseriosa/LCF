@@ -105,10 +105,10 @@ Deno.serve(async (req: Request) => {
               .update({ is_current: false })
               .eq('id', assignment.id)
 
-            // Clear item's current_assignment_id
+            // Clear item's current_assignment_id and vessel_id
             await supabaseAdmin
               .from('items')
-              .update({ current_assignment_id: null })
+              .update({ current_assignment_id: null, vessel_id: null })
               .eq('id', assignment.item_id)
           }
         }
@@ -449,10 +449,10 @@ Deno.serve(async (req: Request) => {
 
       if (error) return errorResponse(error.message, 500)
 
-      // Clear the item's current_assignment_id
+      // Clear the item's current_assignment_id and vessel_id
       await supabaseAdmin
         .from('items')
-        .update({ current_assignment_id: null })
+        .update({ current_assignment_id: null, vessel_id: null })
         .eq('id', assignment.item_id)
 
       return successResponse({ success: true })

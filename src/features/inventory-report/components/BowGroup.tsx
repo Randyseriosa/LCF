@@ -91,7 +91,7 @@ export default function BowGroup({ bowNumber, className, items, hasReport, repor
       >
         <div className="flex items-center px-5 py-3 gap-3">
           {/* Expand icon */}
-          <span className="shrink-0 text-primary">
+          <span className="shrink-0 text-primary w-4">
             {expanded
               ? <ChevronDown className="w-4 h-4 transition-transform duration-200" />
               : <ChevronRight className="w-4 h-4 transition-transform duration-200" />
@@ -99,13 +99,13 @@ export default function BowGroup({ bowNumber, className, items, hasReport, repor
           </span>
 
           {/* Bow number */}
-          <span className="text-sm font-semibold text-foreground w-28 shrink-0">{bowNumber}</span>
+          <span className="text-sm font-semibold text-foreground flex-1 truncate">{bowNumber}</span>
 
           {/* Class */}
           <span className="text-xs text-foreground-muted flex-1 truncate">{className}</span>
 
           {/* Status badge */}
-          <span className="text-xs shrink-0 mr-6">
+          <span className="text-xs flex-1 text-left">
             {hasReport
               ? isUpToDate
                 ? <span className="text-green-600 font-medium">● Up To Date</span>
@@ -117,7 +117,7 @@ export default function BowGroup({ bowNumber, className, items, hasReport, repor
           </span>
 
           {/* Item count */}
-          <span className="text-xs text-foreground-muted shrink-0 w-16 text-right">
+          <span className="text-xs text-foreground-muted flex-1 text-right">
             {items.length} item{items.length !== 1 ? 's' : ''}
           </span>
         </div>

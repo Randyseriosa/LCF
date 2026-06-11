@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ImportItemsModal } from '@/features/equipment/components/ImportItemsModal'
+import { ImportItemsModal, type ParsedFileInfo } from '@/features/equipment/components/ImportItemsModal'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 import { Inbox, Plus } from 'lucide-react'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
 
@@ -32,6 +33,8 @@ export function MasterListTab() {
     const [error, setError] = useState<string | null>(null)
     const [isClearing, setIsClearing] = useState(false)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+    const [successModalData, setSuccessModalData] = useState<{ title: string, message: string }>({ title: '', message: '' })
 
     const fetchItems = async () => {
         setLoading(true)
@@ -212,10 +215,26 @@ export function MasterListTab() {
                 isHqInventory={true}
                 title="Import Masterlist"
                 subtitle="Primary inventory source list"
-                onImportComplete={() => {
+                onImportComplete={(info) => {
                     setIsImportModalOpen(false)
+                    setSuccessModalData({
+                        title: 'Import Successful',
+                        message: info?.isHqInventory
+                            ? 'HQ Inventory Masterlist has been updated successfully.'
+                            : info?.isMasterlist
+                                ? `Equipments for ${info.bow_number} have been updated successfully.`
+                                : 'The equipment items have been imported and synchronized.'
+                    })
+                    setIsSuccessModalOpen(true)
                     fetchItems()
                 }}
+            />
+
+            <SuccessModal
+                isOpen={isSuccessModalOpen}
+                onClose={() => setIsSuccessModalOpen(false)}
+                title={successModalData.title}
+                message={successModalData.message}
             />
         </div>
     )

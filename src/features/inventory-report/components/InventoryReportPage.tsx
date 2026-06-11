@@ -237,12 +237,12 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
               )}
 
               {/* Column header */}
-              <div className="flex items-center px-5 py-2.5 bg-foreground/5 border-b border-foreground/10">
-                <span className="w-7 shrink-0" />
-                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider w-28 shrink-0">Vessel</span>
-                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1">Class</span>
-                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider shrink-0 mr-6">Report Status</span>
-                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider shrink-0 w-16 text-right">Items</span>
+              <div className="flex items-center px-5 py-2.5 bg-foreground/5 border-b border-foreground/10 gap-3">
+                <span className="w-4 shrink-0" />
+                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Vessel</span>
+                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Class</span>
+                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Report Status</span>
+                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-right">Items</span>
               </div>
 
               {bowGroups.map((group, idx) => (
