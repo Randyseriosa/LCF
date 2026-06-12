@@ -24,6 +24,7 @@ interface ImportItem {
     date_last_repair?: string
     running_hours?: number | null
     remarks?: string
+    item_data_status?: string
     status?: 'new' | 'duplicate' | 'not_on_masterlist' | 'missed' | 'internal_duplicate'
 }
 
@@ -260,6 +261,7 @@ export function ImportItemsModal({
                         else if (headerName.includes('last repair') || headerName.includes('last_repair') || headerName.includes('date of last repair')) columnMap.date_last_repair = index
                         else if (headerName.includes('running hours') || headerName.includes('running_hours')) columnMap.running_hours = index
                         else if (headerName === 'remarks' || headerName === 'remark') columnMap.remarks = index
+                        else if (headerName === 'status' || headerName === 'condition') columnMap.item_data_status = index
                     })
                     console.log('[DEBUG] Final columnMap:', columnMap)
                     break
@@ -408,6 +410,9 @@ export function ImportItemsModal({
                                 remarks: columnMap.remarks !== undefined
                                     ? row[columnMap.remarks]?.toString().trim() || undefined
                                     : undefined,
+                                item_data_status: columnMap.item_data_status !== undefined
+                                    ? row[columnMap.item_data_status]?.toString().trim() || undefined
+                                    : undefined,
                             }
                         }
 
@@ -507,6 +512,7 @@ export function ImportItemsModal({
                         date_last_repair: dbItem.date_last_repair || undefined,
                         running_hours: dbItem.running_hours,
                         remarks: dbItem.remarks || undefined,
+                        item_data_status: dbItem.status || undefined,
                         status: 'missed'
                     }))
 
@@ -591,7 +597,12 @@ export function ImportItemsModal({
                 const syncPayload = {
                     month: reportMonth, // sync-hq-inventory expects 0-indexed month
                     year: reportYear,
-                    items: itemsWithEquipmentId.filter(item => item.status !== 'missed' && item.status !== 'internal_duplicate')
+                    items: itemsWithEquipmentId
+                        .filter(item => item.status !== 'missed' && item.status !== 'internal_duplicate')
+                        .map(item => ({
+                            ...item,
+                            status: item.item_data_status || 'Serviceable' // Capture data status from file
+                        }))
                 }
 
                 const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-hq-inventory`, {
@@ -866,7 +877,7 @@ export function ImportItemsModal({
                                                 <table className="w-full min-w-[1200px]">
                                                     <thead className="bg-foreground/5">
                                                         <tr>
-                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
+                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Preview Status</th>
                                                             <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Unique Code</th>
                                                             <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
                                                             <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
@@ -878,12 +889,25 @@ export function ImportItemsModal({
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part Number</th>
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Manufactured</th>
                                                                     <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">{isHqInventory ? 'Date Acquired' : 'Date Installed/Issued'}</th>
-                                                                    {!isHqInventory && (
+                                                                    {(isHqInventory && isMonthlyReport) && (
+                                                                        <>
+                                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date of Last PMS</th>
+                                                                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date of Last Repair</th>
+                                                                            {equipmentName.toUpperCase().includes('NAVIGATIONAL') && (
+                                                                                <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Running Hours</th>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                    {(!isHqInventory || isMonthlyReport) && (
                                                                         <>
                                                                             <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
                                                                             <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
                                                                         </>
                                                                     )}
+                                                                    {(isHqInventory && isMonthlyReport) && (
+                                                                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
+                                                                    )}
+                                                                    <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Remarks</th>
                                                                 </>
                                                             )}
                                                             {isAmmunitions && (
@@ -934,12 +958,25 @@ export function ImportItemsModal({
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_manufactured || '-'}</td>
                                                                         <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_installed_issued || '-'}</td>
-                                                                        {!isHqInventory && (
+                                                                        {(isHqInventory && isMonthlyReport) && (
+                                                                            <>
+                                                                                <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_last_pms || '-'}</td>
+                                                                                <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.date_last_repair || '-'}</td>
+                                                                                {equipmentName.toUpperCase().includes('NAVIGATIONAL') && (
+                                                                                    <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.running_hours ?? '-'}</td>
+                                                                                )}
+                                                                            </>
+                                                                        )}
+                                                                        {(!isHqInventory || isMonthlyReport) && (
                                                                             <>
                                                                                 <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.ics || '-'}</td>
                                                                                 <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.par || '-'}</td>
                                                                             </>
                                                                         )}
+                                                                        {(isHqInventory && isMonthlyReport) && (
+                                                                            <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.item_data_status || '-'}</td>
+                                                                        )}
+                                                                        <td className="px-3 py-3 text-[11px] text-foreground-muted italic max-w-[200px] truncate">{item.remarks || '-'}</td>
                                                                     </>
                                                                 )}
                                                                 {isAmmunitions && (

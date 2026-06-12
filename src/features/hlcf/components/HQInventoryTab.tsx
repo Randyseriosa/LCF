@@ -20,6 +20,8 @@ interface ReportItem {
     date_last_pms?: string
     date_last_repair?: string
     running_hours?: number | null
+    ics?: string
+    par?: string
     status: string
     remarks: string
     equipment_name?: string
@@ -87,6 +89,8 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                     date_last_pms,
                     date_last_repair,
                     running_hours,
+                    ics,
+                    par,
                     status, 
                     remarks,
                     items (
@@ -116,6 +120,8 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                 date_last_pms: ri.date_last_pms,
                 date_last_repair: ri.date_last_repair,
                 running_hours: ri.running_hours,
+                ics: ri.ics,
+                par: ri.par,
                 status: ri.status,
                 remarks: ri.remarks,
                 equipment_name: ri.items?.equipments?.name || 'Uncategorized',
@@ -191,34 +197,63 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-foreground/2 border-b border-foreground/10">
-                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Unique Code</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Nomenclature</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Unique Code</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Classification</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Nomenclature</th>
                                         {isAmmunition ? (
-                                            <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Balance on Hand</th>
+                                            <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Balance on Hand</th>
                                         ) : (
                                             <>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Brand/Model</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Serial No.</th>
-                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Acquired</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Brand</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Model</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Serial No.</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Part No.</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Manufactured</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Acquired</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Last PMS</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Last Repair</th>
+                                                {equipName.toUpperCase().includes('NAVIGATIONAL') && (
+                                                    <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Running Hours</th>
+                                                )}
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">ICS</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">PAR</th>
+                                                <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Status</th>
                                             </>
                                         )}
-                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Remarks</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-foreground/5">
                                     {groupItems.map((item) => (
                                         <tr key={item.id} className="hover:bg-foreground/2 transition-colors">
-                                            <td className="px-4 py-3 text-xs font-medium text-foreground">{item.unique_code}</td>
-                                            <td className="px-4 py-3 text-xs text-foreground uppercase">{item.nomenclature}</td>
+                                            <td className="px-4 py-3 text-xs font-medium text-foreground whitespace-nowrap">{item.unique_code}</td>
+                                            <td className="px-4 py-3 text-xs text-foreground whitespace-nowrap">{item.classification || '-'}</td>
+                                            <td className="px-4 py-3 text-xs text-foreground uppercase whitespace-nowrap">{item.nomenclature}</td>
                                             {isAmmunition ? (
-                                                <td className="px-4 py-3 text-xs text-foreground font-mono">{item.balance_on_hand ?? '-'}</td>
+                                                <td className="px-4 py-3 text-xs text-foreground font-mono whitespace-nowrap">{item.balance_on_hand ?? '-'}</td>
                                             ) : (
                                                 <>
-                                                    <td className="px-4 py-3 text-xs text-foreground uppercase truncate max-w-[150px]">
-                                                        {item.brand} {item.model}
+                                                    <td className="px-4 py-3 text-xs text-foreground uppercase whitespace-nowrap">{item.brand || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground uppercase whitespace-nowrap">{item.model || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted font-mono whitespace-nowrap">{item.serial_number || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted font-mono whitespace-nowrap">{item.part_number || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted whitespace-nowrap">{formatDateToDDMMYYYY(item.date_manufactured) || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted whitespace-nowrap">{formatDateToDDMMYYYY(item.date_installed_issued) || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted whitespace-nowrap">{formatDateToDDMMYYYY(item.date_last_pms) || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground-muted whitespace-nowrap">{formatDateToDDMMYYYY(item.date_last_repair) || '-'}</td>
+                                                    {equipName.toUpperCase().includes('NAVIGATIONAL') && (
+                                                        <td className="px-4 py-3 text-xs text-foreground font-mono whitespace-nowrap">{item.running_hours ?? '-'}</td>
+                                                    )}
+                                                    <td className="px-4 py-3 text-xs text-foreground whitespace-nowrap uppercase">{item.ics || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground whitespace-nowrap uppercase">{item.par || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs text-foreground font-medium whitespace-nowrap">
+                                                        <span className={`px-2 py-0.5 ${['SERVICEABLE', 'OPERATING', 'OPERATIONAL', 'GOOD', 'NEW', 'REPAIRED'].includes(item.status?.toUpperCase())
+                                                            ? 'bg-secondary/10 text-secondary'
+                                                            : 'bg-error/10 text-error'
+                                                            }`}>
+                                                            {item.status || '-'}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs text-foreground-muted font-mono">{item.serial_number || '-'}</td>
-                                                    <td className="px-4 py-3 text-xs text-foreground-muted italic">{formatDateToDDMMYYYY(item.date_installed_issued) || '-'}</td>
                                                 </>
                                             )}
                                             <td className="px-4 py-3 text-[11px] text-foreground-muted italic max-w-[200px] truncate">{item.remarks || '-'}</td>
