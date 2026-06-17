@@ -288,7 +288,7 @@ export function VesselsPageClient({ role, basePath }: { role: Role, basePath: st
 
             <div className="flex border-b border-primary/30">
                 <button
-                    className={`py-3 px-4 text-xs font-bold transition-colors border-b-2 ${activeTab === 'bow'
+                    className={`py-1.5 px-3 text-[10px] font-bold transition-colors border-b-2 ${activeTab === 'bow'
                         ? 'border-accent text-primary'
                         : 'border-transparent text-foreground-muted hover:text-foreground'
                         }`}
@@ -297,7 +297,7 @@ export function VesselsPageClient({ role, basePath }: { role: Role, basePath: st
                     Bow Number
                 </button>
                 <button
-                    className={`py-3 px-4 text-xs font-bold transition-colors border-b-2 ${activeTab === 'class'
+                    className={`py-1.5 px-3 text-[10px] font-bold transition-colors border-b-2 ${activeTab === 'class'
                         ? 'border-accent text-primary'
                         : 'border-transparent text-foreground-muted hover:text-foreground'
                         }`}

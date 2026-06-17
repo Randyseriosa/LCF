@@ -106,9 +106,22 @@
     }
   }
 
+  @keyframes slide-in-from-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
   --animate-breathe: breathe 4s ease-in-out infinite;
   --animate-sonar: sonar-ping 4s cubic-bezier(0, 0, 0.2, 1) infinite;
   --animate-sweep: sweep 4s linear infinite;
+  --animate-slide-in-right: slide-in-from-right 0.3s ease-out;
 }
 
 /* ─── GLOBAL RESETS ─── */

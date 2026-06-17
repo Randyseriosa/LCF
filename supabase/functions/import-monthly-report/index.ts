@@ -276,19 +276,23 @@ interface Payload {
  * Authenticate user and verify role
  */
 async function authenticateUser(authHeader: string | null) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader) {
     return { error: 'Missing authorization header', status: 401 }
+  }
+
+  if (!authHeader.startsWith('Bearer ')) {
+    return { error: 'Invalid authorization format. Expected "Bearer <token>"', status: 401 }
   }
 
   const token = authHeader.replace('Bearer ', '')
   const payload = await verifyToken(token)
 
   if (!payload) {
-    return { error: 'Unauthorized', status: 401 }
+    return { error: 'Invalid or expired token', status: 401 }
   }
 
   if (!['admin', 'encoder'].includes(payload.role) || payload.is_active !== 'active') {
-    return { error: 'Forbidden: Active admin or encoder role required', status: 403 }
+    return { error: `Forbidden: Active admin or encoder role required. Current role: ${payload.role}, Status: ${payload.is_active}`, status: 403 }
   }
 
   return { user_id: payload.user_id, role: payload.role }

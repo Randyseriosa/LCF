@@ -35,8 +35,8 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
                 />
             )}
             {/* Content panel — now with transparent background when banner is present */}
-            <div className={`relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 md:p-10 border-b border-gray-100 ${hasBanner ? 'bg-transparent' : 'bg-white'}`}>
-                <div className="flex items-center gap-4">
+            <div className={`relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-[30px] p-[30px] border-b border-gray-100 ${hasBanner ? 'bg-transparent' : 'bg-white'}`}>
+                <div className="flex items-center gap-[30px]">
                     {onBack ? (
                         <button
                             onClick={onBack}

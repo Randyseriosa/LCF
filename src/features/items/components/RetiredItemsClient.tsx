@@ -226,7 +226,7 @@ export function RetiredItemsClient() {
             <div className="flex border-b border-primary/20">
                 <button
                     onClick={() => setActiveTab('retired')}
-                    className={`flex items-center gap-2 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'retired'
+                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'retired'
                         ? 'text-primary bg-primary/5'
                         : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
                         }`}
@@ -237,7 +237,7 @@ export function RetiredItemsClient() {
                 </button>
                 <button
                     onClick={() => setActiveTab('unassigned')}
-                    className={`flex items-center gap-2 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
+                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
                         ? 'text-primary bg-primary/5'
                         : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
                         }`}

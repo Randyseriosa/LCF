@@ -21,7 +21,7 @@ export function ItemsDisplacementClient() {
             <div className="flex bg-surface border border-foreground/10 w-fit">
                 <button
                     onClick={() => setActiveTab('displacement')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors ${activeTab === 'displacement'
+                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${activeTab === 'displacement'
                         ? 'bg-primary text-background'
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}
@@ -30,7 +30,7 @@ export function ItemsDisplacementClient() {
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'history'
+                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'history'
                         ? 'bg-primary text-background'
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}

@@ -304,7 +304,7 @@ export function BowEquipmentPageClient({ slug, role }: { slug: string; role: Rol
             </div>
 
             {showSaveNotification && (
-                <div className="fixed top-4 right-4 bg-accent text-white px-6 py-3 shadow-popover text-xs font-bold uppercase tracking-widest z-50 animate-in slide-in-from-right">
+                <div className="fixed top-4 right-4 bg-accent text-white px-6 py-3 shadow-popover text-xs font-bold uppercase tracking-widest z-50 animate-slide-in-right">
                     Saved Changes
                 </div>
             )}

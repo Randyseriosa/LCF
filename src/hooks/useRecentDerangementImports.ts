@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export interface RecentImport {
+export interface RecentDerangementImport {
     id: string
     report_month: string
     created_at: string
     vessel_name: string
     importer_name: string
+    filename: string
+    file_path: string
 }
 
-export function useRecentImports(limit: number = 5) {
-    const [imports, setImports] = useState<RecentImport[]>([])
+export function useRecentDerangementImports(limit: number = 5) {
+    const [imports, setImports] = useState<RecentDerangementImport[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -20,11 +22,13 @@ export function useRecentImports(limit: number = 5) {
         setError(null)
         try {
             const { data, error } = await supabase
-                .from('monthly_reports')
+                .from('derangement_reports')
                 .select(`
                     id,
                     report_month,
                     created_at,
+                    filename,
+                    file_path,
                     vessels:vessel_id (bow_number),
                     profiles:imported_by (username, name)
                 `)
@@ -32,7 +36,7 @@ export function useRecentImports(limit: number = 5) {
                 .limit(limit)
 
             if (error) {
-                console.error('[useRecentImports] Supabase error:', {
+                console.error('[useRecentDerangementImports] Supabase error:', {
                     message: error.message,
                     details: error.details,
                     hint: error.hint,
@@ -45,13 +49,15 @@ export function useRecentImports(limit: number = 5) {
                 id: item.id,
                 report_month: item.report_month,
                 created_at: item.created_at,
+                filename: item.filename,
+                file_path: item.file_path,
                 vessel_name: item.vessels?.bow_number || 'Unknown',
                 importer_name: item.profiles?.name || item.profiles?.username || 'Unknown'
             }))
 
             setImports(formattedData)
         } catch (err: any) {
-            console.error('[useRecentImports] Error fetching recent imports:', err)
+            console.error('[useRecentDerangementImports] Error fetching recent imports:', err)
             setError(err.message || 'Failed to fetch recent imports')
         } finally {
             setLoading(false)

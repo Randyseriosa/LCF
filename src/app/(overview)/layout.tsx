@@ -26,7 +26,7 @@ export default async function OverviewLayout({
     return (
         <div className="flex min-h-screen bg-white">
             <Sidebar role={role} />
-            <main className="flex-1 overflow-auto bg-white p-8 md:p-10 md:ml-64">
+            <main className="flex-1 overflow-auto bg-white p-[30px] md:ml-64">
                 {children}
             </main>
         </div>

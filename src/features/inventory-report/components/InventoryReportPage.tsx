@@ -9,6 +9,7 @@ import BowGroup from './BowGroup'
 import MultiSelectDropdown from './MultiSelectDropdown'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getEquipmentGroupLabel } from '@/features/equipment/utils/equipmentGroup'
+import { exportInventoryToExcel } from '@/features/inventory-report/utils/exportInventoryExcel'
 
 
 
@@ -30,37 +31,8 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
   const selectClass = 'w-full px-3 py-2.5 border border-foreground/10 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all'
 
   const handleExport = () => {
-    if (items.length === 0) return
-
-    const headers = [
-      'Bow Number', 'Class of Vessel', 'Unique Code', 'Classification', 'Nomenclature',
-      'Brand', 'Model', 'Serial Number', 'Part Number', 'ICS', 'PAR', 'Status'
-    ]
-
-    const rows = items.map(item => [
-      item.monthly_reports?.vessels?.bow_number || '',
-      item.monthly_reports?.vessels?.class_of_vessel?.name || '',
-      item.unique_code,
-      item.classification,
-      item.nomenclature,
-      item.brand,
-      item.model,
-      item.serial_number,
-      item.part_number,
-      item.ics,
-      item.par,
-      item.status
-    ].map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(','))
-
-    const csvContent = [headers.join(','), ...rows].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `Inventory_Report_${new Date().toISOString().split('T')[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    if (bowGroups.length === 0) return
+    exportInventoryToExcel(bowGroups)
   }
 
 
@@ -77,7 +49,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
             className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition-all border bg-white text-primary border-primary hover:bg-primary hover:text-white"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
-            Export Summary
+            Export Excel
           </button>
         }
       />

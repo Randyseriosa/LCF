@@ -160,7 +160,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
             <div className="flex bg-surface border border-foreground/10 w-fit">
                 <button
                     onClick={() => setActiveTab('hq')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors ${activeTab === 'hq'
+                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${activeTab === 'hq'
                         ? 'bg-primary text-background'
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}
@@ -169,7 +169,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                 </button>
                 <button
                     onClick={() => setActiveTab('masterlist')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'masterlist'
+                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'masterlist'
                         ? 'bg-primary text-background'
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}
@@ -178,7 +178,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                 </button>
                 <button
                     onClick={() => setActiveTab('reports')}
-                    className={`px-8 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'reports'
+                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'reports'
                         ? 'bg-primary text-background'
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}

@@ -45,38 +45,47 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
     }, [])
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-[30px]">
             {/* ── Default: Bento Grid Layout ── */}
             {activeSection === SECTION.home && (
-                <div className="space-y-12">
+                <div className="space-y-[30px]">
                     <PageHeader
                         title="Overview"
                         description="Manage HQS Inventory, Vessels, and Equipment"
                         subtitle="Equipment Management and Monitoring System"
                         Icon={Shield}
                         actions={
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {MANAGEMENT_TABS.map((tab) => {
-                                    const href = tab.href(basePath)
-                                    const isActive = pathname === href || pathname.startsWith(href + '/')
-                                    const Icon = tab.icon
-                                    return (
-                                        <Link
-                                            key={tab.label}
-                                            href={href}
-                                            className={`flex items-center gap-2 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition-all border ${isActive
-                                                ? 'bg-primary text-white border-primary'
-                                                : 'bg-white text-primary border-primary hover:bg-primary hover:text-white'
-                                                }`}
-                                        >
-                                            <Icon className="w-3.5 h-3.5 shrink-0" />
-                                            {tab.label}
-                                        </Link>
-                                    )
-                                })}
-                            </div>
+                            MANAGEMENT_TABS.map((tab) => {
+                                const href = tab.href(basePath)
+                                const isActive = pathname === href || pathname.startsWith(href + '/')
+                                const Icon = tab.icon
+                                return (
+                                    <Link
+                                        key={tab.label}
+                                        href={href}
+                                        className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all border ${isActive
+                                            ? 'bg-primary text-white border-primary'
+                                            : 'bg-white text-primary border-primary hover:bg-primary hover:text-white'
+                                            }`}
+                                    >
+                                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                                        {tab.label}
+                                    </Link>
+                                )
+                            })
                         }
                     />
+
+                    {/* ── Welcome Banner Photo ── */}
+                    <div className="relative w-full h-[300px] md:h-[520px] mt-[30px] overflow-hidden border border-gray-200 bg-gray-50">
+                        <img
+                            src="/images/main/welcome.webp"
+                            alt="Welcome"
+                            className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
+                        />
+                        {/* Tactical Overlay */}
+                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/80 to-transparent z-10" />
+                    </div>
                 </div>
             )}
 

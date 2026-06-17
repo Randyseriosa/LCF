@@ -542,3 +542,15 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/sync-check-monthly-report/index.ts"
 
+[functions.import-derangement-report]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/import-derangement-report/index.ts"
+
+[functions.manage-item-status]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/manage-item-status/index.ts"
+
+
+

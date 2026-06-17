@@ -1,12 +1,14 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { Upload, FileSpreadsheet, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Upload, FileSpreadsheet, FileText, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 import { createClient } from '@/lib/supabase/client'
 import { getAuthUser } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 import { useMonthlyReportStatus } from '@/hooks/useMonthlyReportStatus'
 import { useRecentImports } from '@/hooks/useRecentImports'
+import { useRecentDerangementImports } from '@/hooks/useRecentDerangementImports'
 
 interface ImportRecord {
   month: string
@@ -155,7 +157,7 @@ const extractNumber = (value: any): number | null => {
   return null
 }
 
-export function ImportPageClient() {
+export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'derangement' }) {
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
@@ -168,10 +170,17 @@ export function ImportPageClient() {
   const [syncCheckResults, setSyncCheckResults] = useState<SyncCheckResult | null>(null)
   const [isCheckingSync, setIsCheckingSync] = useState(false)
   const [vesselId, setVesselId] = useState<string | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successModalData, setSuccessModalData] = useState<{ title: string; message: string }>({ title: '', message: '' })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const renderCount = useRef(0)
 
-  const { imports: recentImports, loading: loadingRecent, error: errorRecent, refresh: refreshRecentImports } = useRecentImports(10)
+  const { imports: recentMonthlyImports, loading: loadingMonthly, refresh: refreshRecentMonthly } = useRecentImports(10)
+  const { imports: recentDerangementImports, loading: loadingDerangement, refresh: refreshRecentDerangement } = useRecentDerangementImports(10)
+
+  const recentImports = mode === 'monthly' ? recentMonthlyImports : recentDerangementImports
+  const refreshRecentImports = mode === 'monthly' ? refreshRecentMonthly : refreshRecentDerangement
+  const loadingRecent = mode === 'monthly' ? loadingMonthly : loadingDerangement
 
   // Filter recent imports based on business rules:
   // 1. Max 10 list total.
@@ -631,7 +640,8 @@ export function ImportPageClient() {
   }
 
   const parseFilename = (filename: string): ParsedFileInfo | null => {
-    const match = filename.match(/^([A-Z0-9]+)-(\d{2})(\d{4})\.(xlsx|xls)$/)
+    const regex = mode === 'monthly' ? /^([A-Z0-9]+)-(\d{2})(\d{4})\.(xlsx|xls)$/ : /^([A-Z0-9]+)-(\d{2})(\d{4})\.pdf$/i
+    const match = filename.match(regex)
     if (!match) return null
 
     const [, bow_number, monthStr, yearStr] = match
@@ -656,12 +666,12 @@ export function ImportPageClient() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      const validTypes = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
-      ]
+      const validTypes = mode === 'monthly'
+        ? ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel']
+        : ['application/pdf']
+
       if (!validTypes.includes(selectedFile.type)) {
-        setError('Please upload a valid Excel file (.xlsx or .xls)')
+        setError(mode === 'monthly' ? 'Please upload a valid Excel file (.xlsx or .xls)' : 'Please upload a valid PDF file (.pdf)')
         return
       }
 
@@ -756,31 +766,49 @@ export function ImportPageClient() {
       const base64 = btoa(binary)
       const fileData = `data:${file.type};base64,${base64}`
 
-      // Call edge function to import monthly report
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/import-monthly-report`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      // Call edge function to import report
+      const functionName = mode === 'monthly' ? 'import-monthly-report' : 'import-derangement-report'
+      const { data, error: functionError } = await supabase.functions.invoke(functionName, {
+        body: {
           file_data: fileData,
           filename: file.name
-        })
+        },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to import report')
+      if (functionError) {
+        throw new Error(functionError.message || 'Failed to import report')
+      }
+
+      if (data?.error) {
+        throw new Error(data.error)
+      }
+
+      // Capture file info before clearing state for the notification
+      const importedVessel = fileInfo?.bow_number || 'Unknown Vessel'
+      const importedMonth = fileInfo ? `${fileInfo.month_name} ${fileInfo.year}` : ''
 
       setSuccess(true)
       setFile(null)
       setPreviewData([])
       setFileInfo(null)
       setShowPreview(false)
+      setSyncCheckResults(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
       refreshRecentImports()
+
+      // Show success modal
+      setSuccessModalData({
+        title: 'Import Successful',
+        message: mode === 'monthly'
+          ? `Monthly report for ${importedVessel} — ${importedMonth} imported successfully.`
+          : `Derangement report for ${importedVessel} — ${importedMonth} uploaded successfully.`
+      })
+      setShowSuccessModal(true)
     } catch (err: any) {
       setError(err.message || 'Failed to import report')
     } finally {
@@ -804,16 +832,18 @@ export function ImportPageClient() {
 
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex flex-col gap-2">
-        <h1 className="text-[20px] font-semibold text-foreground">Import Monthly Report</h1>
+        <h1 className="text-[20px] font-semibold text-foreground">
+          {mode === 'monthly' ? 'Import Monthly Report' : 'Equipment Derangement Reports'}
+        </h1>
         <p className="text-sm text-foreground-muted">
-          Upload your monthly inventory report in Excel format to update the system.
+          {mode === 'monthly'
+            ? 'Upload your monthly inventory report in Excel format to update the system.'
+            : 'Upload your Derangement Reports in PDF format to Add in the system.'}
         </p>
       </div>
 
-      {/* File Info Card */}
-      {fileInfo && (
+      {mode === 'monthly' && fileInfo && (
         <div className="  bg-surface p-3 shadow-card border border-foreground/10">
           <div className="flex items-center justify-between">
             <div>
@@ -823,7 +853,6 @@ export function ImportPageClient() {
                 <span className="text-foreground-muted">Month: <span className="text-foreground font-medium">{fileInfo.month_name} {fileInfo.year}</span></span>
               </div>
             </div>
-            {/* Report Status Indicator */}
             <div className="flex items-center gap-2">
               {checkingReportStatus ? (
                 <span className="text-sm text-foreground-muted">Checking...</span>
@@ -840,7 +869,6 @@ export function ImportPageClient() {
               )}
             </div>
           </div>
-          {/* Warning if report already exists */}
           {reportStatus.exists && (
             <div className="mt-4 flex items-center gap-2 text-sm text-warning bg-warning-bg p-3">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -850,392 +878,233 @@ export function ImportPageClient() {
         </div>
       )}
 
-      {/* Upload Card */}
-      <div className="  bg-surface p-4 shadow-card border border-foreground/10">
-        {error && (
-          <div className="mb-4 flex items-center gap-2 text-sm text-error bg-error-bg p-3">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {success && !showPreview && (
-          <div className="mb-4 flex items-center gap-2 text-sm text-secondary bg-secondary/10 p-3">
-            <Check className="w-4 h-4 shrink-0" />
-            Report processed successfully. Ready to import.
-          </div>
-        )}
-
-        {!file ? (
+      {!(mode === 'monthly' && showPreview) && (
+        <div className="bg-surface p-4 shadow-card border border-foreground/10">
           <div className="border-2 border-dashed border-foreground/20 p-3 text-center hover:border-foreground/40 transition-colors">
             <div className="w-16 h-16 bg-secondary/20 flex items-center justify-center mx-auto mb-4">
-              <FileSpreadsheet className="w-8 h-8 text-foreground" />
+              {mode === 'monthly' ? (
+                <FileSpreadsheet className="w-8 h-8 text-foreground" aria-hidden="true" />
+              ) : (
+                <div className="w-12 h-12 bg-primary/10 flex items-center justify-center rounded-none border border-primary/20">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
+              )}
             </div>
-            <h4 className="text-[16px] font-semibold text-foreground mb-2">Upload Monthly Report</h4>
+            <h4 className="text-[16px] font-semibold text-foreground mb-2">
+              {mode === 'monthly' ? 'Upload Monthly Report' : 'Upload Derangement Report'}
+            </h4>
             <p className="text-sm text-foreground-muted mb-4 max-w-md mx-auto">
-              Upload an Excel file (.xlsx or .xls) containing the monthly inventory report.
+              {mode === 'monthly'
+                ? 'Upload an Excel file (.xlsx or .xls) containing the monthly inventory report.'
+                : 'Upload a PDF file (.pdf) containing the equipment derangement report.'}
             </p>
             <div className="flex items-center justify-center gap-2 mb-4 text-xs text-foreground-muted">
-              <Calendar className="w-4 h-4" />
-              <span>Reports should be named with the month and year (e.g., January_2025_Report.xlsx)</span>
+              <Calendar className="w-4 h-4" aria-hidden="true" />
+              <span>
+                {mode === 'monthly'
+                  ? 'Reports should be named with the vessel slug and date (e.g., PS176-052026.xlsx)'
+                  : 'Reports should be named with the vessel slug and date (e.g., PS176-052026.pdf)'}
+              </span>
             </div>
+
             <input
-              ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileChange}
-              className="hidden"
               id="file-upload"
+              className="hidden"
+              accept={mode === 'monthly' ? ".xlsx,.xls" : ".pdf"}
+              onChange={handleFileChange}
+              ref={fileInputRef}
             />
-            <label
-              htmlFor="file-upload"
-              className="inline-flex items-center gap-2 bg-accent text-white px-6 py-2.5 hover:bg-secondary-hover transition-colors text-xs font-bold uppercase tracking-widest shadow-card cursor-pointer"
-            >
-              <Upload className="w-4 h-4" />
-              Select File
-            </label>
-          </div>
-        ) : !showPreview ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-foreground/5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary/20 flex items-center justify-center">
-                  <FileSpreadsheet className="w-5 h-5 text-foreground" />
+
+            {!file ? (
+              <label
+                htmlFor="file-upload"
+                className="inline-flex items-center gap-2 bg-accent text-white px-6 py-2.5 hover:bg-secondary-hover transition-colors text-xs font-bold uppercase tracking-widest shadow-card cursor-pointer"
+              >
+                <Upload className="w-4 h-4" aria-hidden="true" />
+                Select File
+              </label>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-2 bg-foreground/5 py-2 px-4 border border-foreground/10">
+                  {mode === 'monthly' ? (
+                    <FileSpreadsheet className="w-4 h-4 text-primary" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-primary" />
+                  )}
+                  <span className="text-xs font-bold text-foreground truncate max-w-[200px]">{file.name}</span>
+                  <button
+                    onClick={() => {
+                      setFile(null)
+                      setFileInfo(null)
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }}
+                    className="text-foreground-muted hover:text-red-500 transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{file.name}</p>
-                  <p className="text-xs text-foreground-muted">{(file.size / 1024).toFixed(2)} KB</p>
+
+                <div className="flex gap-2">
+                  {mode === 'monthly' ? (
+                    <button
+                      onClick={handleProcessFile}
+                      disabled={isProcessing}
+                      className="bg-primary text-background px-6 py-2.5 hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
+                    >
+                      {isProcessing ? 'Processing...' : 'Process File'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleImport}
+                      disabled={isImporting}
+                      className="bg-primary text-background px-6 py-2.5 hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
+                    >
+                      {isImporting ? 'Uploading...' : 'Upload Report'}
+                    </button>
+                  )}
                 </div>
               </div>
-              <button
-                onClick={handleReset}
-                className="text-foreground-muted hover:text-error transition-colors p-1 hover:bg-error-bg"
-              >
-                <AlertCircle className="w-4 h-4" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+          <p className="text-xs font-bold text-red-500 uppercase tracking-widest leading-relaxed">
+            {error}
+          </p>
+        </div>
+      )}
+
+      {mode === 'monthly' && showPreview && syncCheckResults && (
+        <div className="bg-surface p-3 shadow-card border border-foreground/10">
+          <div className="flex items-center justify-between p-4 bg-secondary/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-secondary flex items-center justify-center">
+                <Check className="w-5 h-5 text-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">File Ready for Import</p>
+                <p className="text-xs text-foreground-muted">{file?.name} • {previewData.length} items</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={handleReset} className="text-sm text-foreground-muted hover:text-foreground transition-colors">
+                Upload different file
               </button>
             </div>
+          </div>
+
+          {(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0) && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-error bg-error-bg p-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>
+                Import blocked. Please fix the report discrepancies ({syncCheckResults.notOnMasterlist.length} not on masterlist, {syncCheckResults.missedItems.length} missed items) before importing.
+              </span>
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-center gap-3">
             <button
-              onClick={handleProcessFile}
-              disabled={isProcessing}
-              className="w-fit mx-auto block bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
+              onClick={handleImport}
+              disabled={isImporting || Boolean(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0)}
+              className="bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
             >
-              {isProcessing ? 'Processing...' : 'Process File'}
+              {isImporting ? 'Importing...' : 'Confirm Import'}
             </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-secondary/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary flex items-center justify-center">
-                  <Check className="w-5 h-5 text-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">File Ready for Import</p>
-                  <p className="text-xs text-foreground-muted">{file.name} • {previewData.length} items</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleReset}
-                  className="text-sm text-foreground-muted hover:text-foreground transition-colors"
-                >
-                  Upload different file
-                </button>
-              </div>
-            </div>
+        </div>
+      )}
 
-            {/* Discrepancy warning */}
-            {syncCheckResults && (syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0) && (
-              <div className="flex items-center gap-2 text-sm text-error bg-error-bg p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>
-                  Import blocked. Please fix the report discrepancies ({syncCheckResults.notOnMasterlist.length} not on masterlist, {syncCheckResults.missedItems.length} missed items) before importing.
-                </span>
-              </div>
-            )}
-            {syncCheckResults && syncCheckResults.mismatched.length > 0 && (
-              <div className="flex items-center gap-2 text-sm text-warning bg-warning-bg p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>
-                  {syncCheckResults.mismatched.length} item{syncCheckResults.mismatched.length > 1 ? 's have' : ' has'} column values that differ from the masterlist. Review discrepancies before importing.
-                </span>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleImport}
-                disabled={isImporting || Boolean(syncCheckResults && (syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.mismatched.length > 0 || syncCheckResults.internalDuplicates.length > 0))}
-                className="w-fit mx-auto block bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
-              >
-                {isImporting ? 'Importing...' : 'Confirm Import'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Preview Card */}
-      {showPreview && previewData.length > 0 && (
-        <div className="  bg-surface p-3 shadow-card border border-foreground/10">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[16px] font-semibold text-foreground">Preview Data</h3>
-            <span className="text-sm text-foreground-muted">{previewData.length} items</span>
-          </div>
-
-          {/* Render grouped items directly */}
-          {sortedGroupedEquipmentCodes.map((equipmentCode, index) => {
-            console.log(`[DEBUG] Rendering equipment ${index}: ${equipmentCode}`)
+      {mode === 'monthly' && showPreview && previewData.length > 0 && (
+        <div className="bg-surface p-3 shadow-card border border-foreground/10 mt-6">
+          <h3 className="text-[16px] font-semibold text-foreground mb-4">Preview Data ({previewData.length} items)</h3>
+          {sortedGroupedEquipmentCodes.map((equipmentCode) => {
             const equipment = equipments[equipmentCode]
-            const isUncategorizedAmmo = equipmentCode === 'Uncategorized Ammunitions'
-            const equipmentName = isUncategorizedAmmo ? 'Uncategorized Ammunitions' : (equipment?.name || equipmentCode)
-            const equipmentType = equipment?.equipment_type
-
-            // Determine columns based on equipment type
-            const isAmmunitions = equipmentType === 'ammunitions' || equipmentType === 'ammunition' || isUncategorizedAmmo
-            const showRunningHours = equipmentType === 'navigational'
-            const dateFieldLabel = equipmentType === 'weapon' ? 'Date Issued' : 'Date Installed'
+            const items = groupedItems[equipmentCode]
+            if (!items || items.length === 0) return null
 
             return (
               <div key={equipmentCode} className="border border-foreground/10 overflow-hidden mb-4 last:mb-0">
                 <div className="bg-foreground/5 px-4 py-3 border-b border-foreground/10">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-foreground">{equipmentName}</h4>
-                  <p className="text-xs text-foreground-muted">{equipmentCode} • {groupedItems[equipmentCode].length} items {equipmentType && `(${equipmentType.toUpperCase()})`}</p>
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-foreground">{equipment?.name || equipmentCode}</h4>
+                  <p className="text-xs text-foreground-muted">{equipmentCode} • {items.length} items</p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1500px]">
+                  <table className="w-full text-left">
                     <thead className="bg-foreground/5">
                       <tr>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Unique Code</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
-                        {!isAmmunitions && (
-                          <>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Brand</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Model</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Serial No.</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Part No.</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Date Manufactured</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">{dateFieldLabel}</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last PMS</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Last Repair</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">ICS</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">PAR</th>
-                            {showRunningHours && (
-                              <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Running Hours</th>
-                            )}
-                          </>
-                        )}
-                        {isAmmunitions && (
-                          <>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Previous Report</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Expended</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Replenished</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Balance on Hand</th>
-                          </>
-                        )}
-                        {!isAmmunitions && (
-                          <>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Status</th>
-                            <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Remarks</th>
-                          </>
-                        )}
+                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-foreground/10">
-                      {groupedItems[equipmentCode].map((item, index) => (
-                        <tr key={index} className={`hover:bg-foreground/3 ${item.syncStatus === 'not_on_masterlist' || item.syncStatus === 'internal_duplicate' ? 'bg-error-bg/30' : item.syncStatus === 'mismatched' ? 'bg-warning-bg' : ''}`}>
-                          <td className="px-3 py-3 text-sm whitespace-nowrap">
-                            {item.syncStatus === 'sync' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
-                                Synced
-                              </span>
-                            ) : item.syncStatus === 'internal_duplicate' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error text-white uppercase tracking-wider">
-                                Duplicate in File
-                              </span>
-                            ) : item.syncStatus === 'not_on_masterlist' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-error-bg text-error">
-                                Not on masterlist
-                              </span>
-                            ) : item.syncStatus === 'mismatched' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-warning-bg text-warning">
-                                Mismatched
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-foreground/10 text-foreground-muted">
-                                N/A
-                              </span>
-                            )}
+                    <tbody className="divide-y divide-foreground/5">
+                      {items.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                          <td className="px-3 py-2 text-xs">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${item.syncStatus === 'sync' ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+                              }`}>
+                              {item.syncStatus}
+                            </span>
                           </td>
-                          <td className="px-3 py-3 text-sm text-foreground font-medium whitespace-nowrap">{item.unique_code || '-'}</td>
-                          <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.classification || '-'}</td>
-                          <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.nomenclature || '-'}</td>
-                          {!isAmmunitions && (
-                            <>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.brand || '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.model || '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.serial_number || '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.part_number || '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_manufactured)}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{formatDateForDisplay(equipmentType === 'weapon' ? item.date_installed_issued : item.date_installed_issued)}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_pms)}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{formatDateForDisplay(item.date_last_repair)}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.ics || '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.par || '-'}</td>
-                              {showRunningHours && (
-                                <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.running_hours || '-'}</td>
-                              )}
-                            </>
-                          )}
-                          {isAmmunitions && (
-                            <>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.previous_report ?? '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.expended ?? '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.replenished ?? '-'}</td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.balance_on_hand ?? '-'}</td>
-                            </>
-                          )}
-                          {!isAmmunitions && (
-                            <>
-                              <td className="px-3 py-3 text-sm">
-                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-secondary/20 text-foreground">
-                                  {item.status || 'N/A'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.remarks || '-'}</td>
-                            </>
-                          )}
+                          <td className="px-3 py-2 text-sm font-medium">{item.unique_code}</td>
+                          <td className="px-3 py-2 text-sm">{item.nomenclature}</td>
+                          <td className="px-3 py-2 text-sm">{item.status}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Missed Items Summary */}
-      {showPreview && syncCheckResults && (syncCheckResults.missedItems.length > 0 || syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.mismatched.length > 0) && (
-        <div className="  bg-surface p-3 shadow-card border border-foreground/10">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[16px] font-semibold text-foreground">Sync Check Summary</h3>
-            <span className="text-sm text-foreground-muted">{syncCheckResults.missedItems.length} items not in report</span>
-          </div>
-
-          {/* Summary stats */}
-          {syncCheckResults && (
-            <div className="flex flex-wrap gap-3 mb-4">
-              <div className="flex items-center gap-2 px-3 py-2 bg-secondary/10">
-                <Check className="w-4 h-4 text-secondary" />
-                <span className="text-sm font-medium text-foreground">{syncCheckResults.sync.length} Synced</span>
-              </div>
-              {syncCheckResults.internalDuplicates.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-error text-white">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium uppercase tracking-wider">{syncCheckResults.internalDuplicates.length} Duplicate in File</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 px-3 py-2 bg-warning-bg">
-                <AlertCircle className="w-4 h-4 text-warning" />
-                <span className="text-sm font-medium text-warning">{syncCheckResults.mismatched.length} Mismatched</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 bg-error-bg">
-                <AlertCircle className="w-4 h-4 text-error" />
-                <span className="text-sm font-medium text-error">{syncCheckResults.notOnMasterlist.length} Not on masterlist</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 bg-foreground/10">
-                <Inbox className="w-4 h-4 text-foreground-muted" />
-                <span className="text-sm font-medium text-foreground-muted">{syncCheckResults.missedItems.length} Missed</span>
-              </div>
-            </div>
-          )}
-
-          {/* Group missed items by equipment */}
-          {(() => {
-            const groupedMissedItems = syncCheckResults.missedItems.reduce((groups, item) => {
-              if (!groups[item.equipment_code]) {
-                groups[item.equipment_code] = []
-              }
-              groups[item.equipment_code].push(item)
-              return groups
-            }, {} as Record<string, MissedItem[]>)
-
-            const equipmentCodes = Object.keys(groupedMissedItems).sort()
-
-            return equipmentCodes.map((equipmentCode) => (
-              <div key={equipmentCode} className="border border-foreground/10 overflow-hidden mb-4 last:mb-0">
-                <div className="bg-foreground/5 px-4 py-3 border-b border-foreground/10">
-                  <h4 className="text-sm font-semibold text-foreground">{groupedMissedItems[equipmentCode][0].equipment_name}</h4>
-                  <p className="text-xs text-foreground-muted">{equipmentCode} • {groupedMissedItems[equipmentCode].length} items</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-foreground/5">
-                      <tr>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Unique Code</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Classification</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-foreground-muted whitespace-nowrap">Nomenclature</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-foreground/10">
-                      {groupedMissedItems[equipmentCode].map((item, index) => (
-                        <tr key={index} className="hover:bg-foreground/3">
-                          <td className="px-3 py-3 text-sm text-foreground font-medium whitespace-nowrap">{item.unique_code}</td>
-                          <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.classification || '-'}</td>
-                          <td className="px-3 py-3 text-sm text-foreground whitespace-nowrap">{item.nomenclature || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))
-          })()}
-        </div>
-      )}
-
-      {/* Recent Imports */}
-      <div className="  bg-surface p-3 shadow-card border border-foreground/10">
+      <div className="bg-surface p-3 shadow-card border border-foreground/10">
         <h3 className="text-[16px] font-semibold text-foreground mb-4">Recent Imports</h3>
-        {loadingRecent ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent animate-spin mb-2" />
-            <p className="text-xs text-foreground-muted uppercase tracking-widest font-bold">Loading fleet logs...</p>
-          </div>
-        ) : errorRecent ? (
-          <div className="p-4 bg-error-bg text-error text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            <span>{errorRecent}</span>
-          </div>
-        ) : displayedImports.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-foreground/10">
-                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Vessel</th>
-                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Report Month</th>
-                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Imported</th>
-                  <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">By</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-foreground/10">
+                <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Vessel</th>
+                <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Report Month</th>
+                <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Imported</th>
+                <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">By</th>
+                {mode === 'derangement' && <th className="py-2 px-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-right">Action</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-foreground/5">
+              {loadingRecent ? (
+                <tr>
+                  <td colSpan={mode === 'derangement' ? 5 : 4} className="py-8 text-center text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                    Loading recent imports...
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-foreground/5">
-                {displayedImports.map((item) => (
+              ) : displayedImports.length === 0 ? (
+                <tr>
+                  <td colSpan={mode === 'derangement' ? 5 : 4} className="py-8 text-center text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                    No recent imports found
+                  </td>
+                </tr>
+              ) : (
+                displayedImports.map((item) => (
                   <tr key={item.id} className="hover:bg-foreground/5 transition-colors">
                     <td className="py-3 px-2 text-sm font-semibold text-foreground">{item.vessel_name}</td>
                     <td className="py-3 px-2 text-sm text-foreground">
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        <Calendar className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
                         {formatReportMonth(item.report_month)}
                       </div>
                     </td>
                     <td className="py-3 px-2 text-sm text-foreground-muted">
                       <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                         {formatDateForDisplay(item.created_at)}
                       </div>
                     </td>
@@ -1244,19 +1113,34 @@ export function ImportPageClient() {
                         {item.importer_name}
                       </div>
                     </td>
+                    {mode === 'derangement' && (
+                      <td className="py-3 px-2 text-right">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/derangement-reports/${(item as any).file_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View PDF
+                        </a>
+                      </td>
+                    )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Inbox className="w-8 h-8 text-foreground-muted mb-3" />
-            <p className="text-sm text-foreground-muted">No recent imports</p>
-            <p className="text-xs text-foreground-muted mt-1">Imported reports will appear here</p>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* ── Import Success Modal ── */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successModalData.title}
+        message={successModalData.message}
+      />
     </div>
   )
 }
