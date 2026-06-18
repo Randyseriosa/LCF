@@ -51,19 +51,19 @@ Deno.serve(async (req: Request) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        const { itemId, status } = await req.json()
+        const { itemId, is_status } = await req.json()
 
-        if (!itemId || !status) {
-            throw new Error('itemId and status are required')
+        if (!itemId || !is_status) {
+            throw new Error('itemId and is_status are required')
         }
 
-        if (!['active', 'retired'].includes(status)) {
-            throw new Error('Invalid status')
+        if (!['active', 'retired'].includes(is_status)) {
+            throw new Error('Invalid is_status')
         }
 
         const { data, error } = await supabaseClient
             .from('items')
-            .update({ status })
+            .update({ is_status })
             .eq('id', itemId)
             .select()
             .single()

@@ -12,7 +12,7 @@ interface Item {
     unique_code: string
     classification: string
     nomenclature: string
-    status: 'active' | 'retired'
+    is_status: 'active' | 'retired'
     vessel_id: string | null
     vessel?: {
         bow_number: string
@@ -41,43 +41,29 @@ export function RetiredItemsClient() {
         setLoading(true)
         try {
             console.log('[RetiredItems] Fetching items...')
-            // 1. Fetch HQ vessel ID
-            const { data: hqVessel, error: hqError } = await supabase
-                .from('vessels')
-                .select('id')
-                .eq('slug', 'hq-inventory')
-                .maybeSingle()
 
-            if (hqError) console.error('[RetiredItems] HQ Vessel Fetch Error:', hqError)
-            console.log('[RetiredItems] HQ Vessel:', hqVessel)
-
-            // 2. Fetch Retired items
-            let retiredQuery = supabase
+            // 1. Fetch Retired items (includes ALL vessels including HLCF/HQ inventory)
+            const { data: retiredData, error: retiredError } = await supabase
                 .from('items')
                 .select(`
                     id, 
                     unique_code, 
                     classification, 
                     nomenclature, 
-                    status, 
+                    is_status, 
                     vessel_id,
                     vessels!vessel_id (bow_number)
                 `)
-                .eq('status', 'retired')
+                .eq('is_status', 'retired')
+                .order('updated_at', { ascending: false })
 
-            // Exclude HQ items from Retired Items list, but keep NULLs
-            if (hqVessel?.id) {
-                // In Postgrest, neq on a nullable column excludes NULLs. 
-                // We use .or to include NULLs or non-HQ.
-                retiredQuery = retiredQuery.or(`vessel_id.is.null,vessel_id.neq.${hqVessel.id}`)
-            }
-
-            const { data: retiredData, error: retiredError } = await retiredQuery.order('updated_at', { ascending: false })
             if (retiredError) {
                 console.error('[RetiredItems] Retired Data Error:', retiredError)
             }
 
-            // 3. Fetch Unassigned items (Strictly those with no vessel assignment)
+            // 2. Fetch Unassigned items — only Bow-vessel items with no assignment.
+            //    Exclude HLCF/OLCF6 items: these are spare items previously in HLCF
+            //    inventory and must NOT appear in the Unassigned list.
             const { data: unassignedData, error: unassignedError } = await supabase
                 .from('items')
                 .select(`
@@ -85,12 +71,13 @@ export function RetiredItemsClient() {
                     unique_code, 
                     classification, 
                     nomenclature, 
-                    status, 
+                    is_status, 
                     vessel_id,
                     vessels!vessel_id (bow_number)
                 `)
-                .eq('status', 'active')
+                .eq('is_status', 'active')
                 .is('vessel_id', null)
+                .not('unique_code', 'ilike', '%-OLCF6-%')
                 .order('unique_code', { ascending: true })
 
             if (unassignedError) {
@@ -189,7 +176,7 @@ export function RetiredItemsClient() {
                 },
                 body: JSON.stringify({
                     itemId: itemToRetire.id,
-                    status: 'retired'
+                    is_status: 'retired'
                 })
             })
 
@@ -199,7 +186,7 @@ export function RetiredItemsClient() {
                 throw new Error(result.error || result.details || 'Failed to retire item')
             }
 
-            setSuccessMessage(`Item ${itemToRetire.unique_code} has been moved to Retired Items.`)
+            setSuccessMessage(`Item ${itemToRetire.unique_code} has been moved to Unserviceable items.`)
             setIsSuccessModalOpen(true)
 
             // Refetch or update state locally
@@ -232,7 +219,7 @@ export function RetiredItemsClient() {
                         }`}
                 >
                     <Archive className="w-4 h-4" />
-                    Retired Items
+                    Unserviceable items
                     {activeTab === 'retired' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
                 </button>
                 <button
@@ -285,11 +272,11 @@ export function RetiredItemsClient() {
                                     (activeTab === 'retired' ? retiredItems : unassignedItems).map((item) => (
                                         <tr key={item.id} className="hover:bg-primary/[0.02] transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className={`text-[9px] font-black px-2 py-0.5 uppercase tracking-widest border text-center block ${item.status === 'retired'
+                                                <span className={`text-[9px] font-black px-2 py-0.5 uppercase tracking-widest border text-center block ${item.is_status === 'retired'
                                                     ? 'bg-error/10 text-error border-error/20'
                                                     : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                                                     }`}>
-                                                    {item.status === 'retired' ? 'RETIRED' : 'UNASSIGNED'}
+                                                    {item.is_status === 'retired' ? 'UNSERVICEABLE' : 'UNASSIGNED'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-bold text-primary tracking-wider">{item.unique_code}</td>
@@ -339,7 +326,7 @@ export function RetiredItemsClient() {
                             className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-error hover:bg-error/5 transition-colors border-l-2 border-transparent hover:border-error"
                         >
                             <Archive className="w-4 h-4" />
-                            Declare Retired Item
+                            Declare Unserviceable item
                         </button>
                     )}
                 </div>
@@ -353,9 +340,9 @@ export function RetiredItemsClient() {
                     setItemToRetire(null)
                 }}
                 onConfirm={handleDeclareRetired}
-                title="Confirm Retirement"
-                message={`Are you sure you want to retire item ${itemToRetire?.unique_code}? This will mark it as decommissioned and remove it from the active inventory manifest.`}
-                confirmText="Retire Item"
+                title="Confirm Unserviceable Status"
+                message={`Are you sure you want to mark item ${itemToRetire?.unique_code} as unserviceable? This will mark it as decommissioned and remove it from the active inventory manifest.`}
+                confirmText="Confirm Status"
                 cancelText="Cancel"
             />
 
@@ -363,7 +350,7 @@ export function RetiredItemsClient() {
             <SuccessModal
                 isOpen={isSuccessModalOpen}
                 onClose={() => setIsSuccessModalOpen(false)}
-                title="Item Retired"
+                title="Unserviceable Item Recorded"
                 message={successMessage}
             />
         </div>

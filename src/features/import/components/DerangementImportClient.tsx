@@ -434,7 +434,18 @@ export function DerangementImportClient() {
                                                 <td className="px-3 py-2.5 text-sm font-bold text-foreground cursor-pointer" onClick={() => handleToggleItem(item)}>{item.unique_code}</td>
                                                 <td className="px-3 py-2.5 text-sm text-foreground cursor-pointer" onClick={() => handleToggleItem(item)}>{item.nomenclature || '-'}</td>
                                                 <td className="px-3 py-2.5 text-sm text-foreground-muted cursor-pointer" onClick={() => handleToggleItem(item)}>{item.serial_number || '-'}</td>
-                                                <td className="px-3 py-2.5 text-sm text-foreground-muted cursor-pointer" onClick={() => handleToggleItem(item)}>{item.status || '-'}</td>
+                                                <td className="px-3 py-2.5 text-sm cursor-pointer" onClick={() => handleToggleItem(item)}>
+                                                    {item.equipment_name?.toUpperCase().includes('AMMUNIT') || item.equipment_code === 'AM' ? (
+                                                        <span className="text-foreground-muted">-</span>
+                                                    ) : (
+                                                        <span className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${['OPERATING', 'OPERATIONAL', 'SERVICEABLE', 'GOOD'].includes(item.status?.toUpperCase() || '')
+                                                            ? 'bg-secondary/10 text-secondary border border-secondary/20'
+                                                            : 'bg-primary/10 text-primary border border-primary/20'
+                                                            }`}>
+                                                            {item.status || '-'}
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-3 py-2.5 text-sm text-foreground-muted truncate max-w-[200px]" title={item.monthly_remarks || ''}>
                                                     {item.monthly_remarks || '-'}
                                                 </td>

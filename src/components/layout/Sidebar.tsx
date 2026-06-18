@@ -47,9 +47,9 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: '/admin', icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: '/admin/global-inventory-view', icon: FileText },
-                { name: 'Monthly Report', href: '/admin/monthly-report', icon: FileBarChart2 },
-                { name: 'Items Displacement', href: '/admin/items-displacement', icon: ArrowLeftRight },
-                { name: 'Retired Items', href: '/admin/retired-items', icon: Archive },
+                { name: 'Report', href: '/admin/monthly-report', icon: FileBarChart2 },
+                { name: 'Item Displacement', href: '/admin/item-displacement', icon: ArrowLeftRight },
+                { name: 'Item Management', href: '/admin/unserviceable-items', icon: Archive },
                 { name: 'Settings', href: '/admin/settings', icon: Settings },
                 { name: 'Users', href: '/admin/users', icon: Users }
             )
@@ -59,9 +59,9 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
-                { name: 'Monthly Report', href: `/${role}/monthly-report`, icon: FileBarChart2 },
-                { name: 'Items Displacement', href: `/${role}/items-displacement`, icon: ArrowLeftRight },
-                { name: 'Retired Items', href: `/${role}/retired-items`, icon: Archive },
+                { name: 'Report', href: `/${role}/monthly-report`, icon: FileBarChart2 },
+                { name: 'Item Displacement', href: `/${role}/item-displacement`, icon: ArrowLeftRight },
+                { name: 'Item Management', href: `/${role}/unserviceable-items`, icon: Archive },
                 { name: 'Settings', href: `/${role}/settings`, icon: Settings }
             )
             break
@@ -95,7 +95,7 @@ export function Sidebar({ role }: { role: Role }) {
                         <Link
                             key={item.name}
                             href={item.href}
-                            className={`group relative flex h-12 items-center gap-3 px-6 transition-colors ${isActive
+                            className={`group relative flex h-12 items-center gap-3 px-6 ${isActive
                                 ? 'text-[#4A5568] bg-gray-50'
                                 : 'text-gray-500 hover:text-primary hover:bg-gray-50'
                                 }`}
@@ -117,7 +117,7 @@ export function Sidebar({ role }: { role: Role }) {
             <div className="p-4 border-t border-gray-100">
                 <button
                     onClick={handleLogoutClick}
-                    className="flex w-full h-12 items-center gap-3 px-6 text-gray-500 hover:text-error hover:bg-error-bg transition-colors"
+                    className="flex w-full h-12 items-center gap-3 px-6 text-gray-500 hover:text-error hover:bg-error-bg"
                 >
                     <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
                     <span className="text-[13px] font-bold tracking-wider uppercase">

@@ -78,7 +78,7 @@ export function VesselGrid({ onSelectClass }: VesselGridProps) {
                                 key={cls.id}
                                 type="button"
                                 onClick={() => onSelectClass?.(cls)}
-                                className={`group relative  bg-surface border ${palette.border} p-3 text-left transition-all duration-200 hover:shadow-card hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer`}
+                                className={`group relative bg-surface border ${palette.border} p-3 text-left focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer`}
                             >
                                 {/* Icon badge */}
                                 <div className={`${palette.bg} w-8 h-8 flex items-center justify-center mb-4`}>
@@ -96,7 +96,7 @@ export function VesselGrid({ onSelectClass }: VesselGridProps) {
                                 </p>
 
                                 {/* CTA */}
-                                <span className={`inline-flex items-center gap-1.5 ${palette.text} text-sm font-medium group-hover:gap-2.5 transition-all`}>
+                                <span className={`inline-flex items-center gap-1.5 ${palette.text} text-sm font-medium`}>
                                     View Bow Numbers <ArrowRight className="w-3.5 h-3.5" />
                                 </span>
                             </button>

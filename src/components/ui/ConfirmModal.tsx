@@ -35,7 +35,7 @@ export function ConfirmModal({
             />
 
             {/* Modal */}
-            <div className="relative  bg-surface border border-primary/40 shadow-popover w-full max-w-md p-3 animate-in fade-in zoom-in duration-200">
+            <div className="relative bg-surface border border-primary/40 shadow-popover w-full max-w-md p-3">
                 {/* Close Button */}
                 <button
                     onClick={onClose}

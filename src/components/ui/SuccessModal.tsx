@@ -40,9 +40,8 @@ export function SuccessModal({
             {/* Success Message UI - Lower Centered / Auto-disappearing with Exit Animation */}
             <div className={`
                 relative bg-surface border-2 border-primary shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-lg p-4 
-                transition-all duration-500 ease-in-out pointer-events-auto
-                ${isExiting ? 'opacity-0 translate-y-12 scale-95' : 'opacity-100 translate-y-0 scale-100'}
-                ${!isExiting ? 'animate-in fade-in slide-in-from-bottom-8' : ''}
+                pointer-events-auto
+                ${isExiting ? 'opacity-0' : 'opacity-100'}
             `}>
                 <div className="flex items-center gap-4">
                     {/* Tactical Success Icon */}

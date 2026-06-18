@@ -43,6 +43,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
         title="Global Inventory View"
         description={`Total Vessels: ${bowGroups.length}`}
         Icon={FileText}
+        bannerImage="/images/banners/banner-general-button.webp"
         actions={
           <button
             onClick={handleExport}

@@ -148,7 +148,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
 
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col">
             <PageHeader
                 title="HLCF Inventory"
                 description="Manage HQS Inventory, Vessels, and Equipment"
@@ -156,112 +156,115 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                 Icon={Package}
             />
 
-            {/* Segmented Control */}
-            <div className="flex bg-surface border border-foreground/10 w-fit">
-                <button
-                    onClick={() => setActiveTab('hq')}
-                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${activeTab === 'hq'
-                        ? 'bg-primary text-background'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                        }`}
-                >
-                    HQ Inventory
-                </button>
-                <button
-                    onClick={() => setActiveTab('masterlist')}
-                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'masterlist'
-                        ? 'bg-primary text-background'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                        }`}
-                >
-                    Masterlist
-                </button>
-                <button
-                    onClick={() => setActiveTab('reports')}
-                    className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'reports'
-                        ? 'bg-primary text-background'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                        }`}
-                >
-                    Reports
-                </button>
-            </div>
+            <div className="space-y-6">
+                {/* Segmented Control */}
+                <div className="flex bg-surface border border-foreground/10 w-fit">
+                    <button
+                        onClick={() => setActiveTab('hq')}
+                        className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${activeTab === 'hq'
+                            ? 'bg-primary text-background'
+                            : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
+                            }`}
+                    >
+                        HQ Inventory
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('masterlist')}
+                        className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'masterlist'
+                            ? 'bg-primary text-background'
+                            : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
+                            }`}
+                    >
+                        Masterlist
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reports')}
+                        className={`px-6 py-2 text-xs font-semibold uppercase tracking-widest transition-colors border-l border-foreground/10 ${activeTab === 'reports'
+                            ? 'bg-primary text-background'
+                            : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
+                            }`}
+                    >
+                        Reports
+                    </button>
+                </div>
 
-            {/* Content Area */}
-            <div className="bg-surface border border-foreground/5 shadow-card p-6">
-                {activeTab === 'hq' && (
-                    <div className="flex flex-col">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex gap-4">
-                                {/* Unified Month/Year Picker */}
-                                <MonthYearPicker
+
+                {/* Content Area */}
+                <div className="bg-surface border border-foreground/5 shadow-card p-6">
+                    {activeTab === 'hq' && (
+                        <div className="flex flex-col">
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex gap-4">
+                                    {/* Unified Month/Year Picker */}
+                                    <MonthYearPicker
+                                        month={selectedMonth}
+                                        year={selectedYear}
+                                        onChange={(m, y) => {
+                                            setSelectedMonthState(m)
+                                            setSelectedYearState(y)
+                                            updateUrl(activeTab, m, y)
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="flex gap-2">
+                                    {reportExists && (
+                                        <button
+                                            onClick={handleClearReport}
+                                            disabled={isClearingReport}
+                                            className="bg-error/5 hover:bg-error/10 text-error px-4 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/10 transition-colors disabled:opacity-50"
+                                        >
+                                            {isClearingReport ? 'Clearing...' : 'Clear Report'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
+                                    >
+                                        {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <HQInventoryTab
+                                    key={hqRefreshKey}
                                     month={selectedMonth}
                                     year={selectedYear}
-                                    onChange={(m, y) => {
-                                        setSelectedMonthState(m)
-                                        setSelectedYearState(y)
-                                        updateUrl(activeTab, m, y)
-                                    }}
                                 />
                             </div>
-
-                            <div className="flex gap-2">
-                                {reportExists && (
-                                    <button
-                                        onClick={handleClearReport}
-                                        disabled={isClearingReport}
-                                        className="bg-error/5 hover:bg-error/10 text-error px-4 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/10 transition-colors disabled:opacity-50"
-                                    >
-                                        {isClearingReport ? 'Clearing...' : 'Clear Report'}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setIsImportModalOpen(true)}
-                                    className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
-                                >
-                                    {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
-                                </button>
-                            </div>
                         </div>
-                        <div className="mt-4">
-                            <HQInventoryTab
-                                key={hqRefreshKey}
-                                month={selectedMonth}
-                                year={selectedYear}
-                            />
+                    )}
+
+                    {activeTab === 'masterlist' && (
+                        <div className="py-2">
+                            <MasterListTab />
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {activeTab === 'masterlist' && (
-                    <div className="py-2">
-                        <MasterListTab />
-                    </div>
-                )}
+                    {activeTab === 'reports' && (
+                        <div className="py-2">
+                            <ReportsTab />
+                        </div>
+                    )}
+                </div>
 
-                {activeTab === 'reports' && (
-                    <div className="py-2">
-                        <ReportsTab />
-                    </div>
-                )}
+                <ImportItemsModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => setIsImportModalOpen(false)}
+                    isHqInventory={true}
+                    isMonthlyReport={true}
+                    month={selectedMonth}
+                    year={selectedYear}
+                    title="Import Monthly Report"
+                    subtitle="Monthly inventory status update"
+                    onImportComplete={() => {
+                        setIsImportModalOpen(false)
+                        setActiveTabState('hq')
+                        updateUrl('hq', selectedMonth, selectedYear)
+                        setHqRefreshKey(k => k + 1)
+                    }}
+                />
             </div>
-
-            <ImportItemsModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                isHqInventory={true}
-                isMonthlyReport={true}
-                month={selectedMonth}
-                year={selectedYear}
-                title="Import Monthly Report"
-                subtitle="Monthly inventory status update"
-                onImportComplete={() => {
-                    setIsImportModalOpen(false)
-                    setActiveTabState('hq')
-                    updateUrl('hq', selectedMonth, selectedYear)
-                    setHqRefreshKey(k => k + 1)
-                }}
-            />
-        </div >
+        </div>
     )
 }

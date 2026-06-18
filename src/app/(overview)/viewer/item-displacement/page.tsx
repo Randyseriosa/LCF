@@ -3,15 +3,15 @@ import { ArrowLeftRight } from 'lucide-react'
 import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTransfer'
 
 export const metadata = {
-    title: 'Items Displacement | Viewer',
+    title: 'Item Displacement | Viewer',
     description: 'Transfer items between vessels',
 }
 
-export default function ItemsDisplacementPage() {
+export default function ItemDisplacementPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Items Displacement"
+                title="Item Displacement"
                 description="Transfer Items"
                 Icon={ArrowLeftRight}
             />

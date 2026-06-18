@@ -25,7 +25,7 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
     const hasBanner = !!bannerImage
 
     return (
-        <div className="relative bg-white border border-gray-200 overflow-hidden">
+        <div className="relative bg-white border border-gray-200 overflow-hidden mb-[10px]">
             {/* Banner photo — full bleed behind the header, visible on the right */}
             {hasBanner && (
                 <div
@@ -40,10 +40,10 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
                     {onBack ? (
                         <button
                             onClick={onBack}
-                            className="flex h-12 w-12 items-center justify-center bg-gray-50 border border-gray-100 shrink-0 hover:bg-gray-100 transition-colors group"
+                            className="flex h-12 w-12 items-center justify-center bg-gray-50 border border-gray-100 shrink-0 hover:bg-gray-100 group"
                             title="Go Back"
                         >
-                            <ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors" aria-hidden="true" />
+                            <ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-primary" aria-hidden="true" />
                         </button>
                     ) : Icon && (
                         <div className="flex h-12 w-12 items-center justify-center bg-gray-50 border border-gray-100 shrink-0">

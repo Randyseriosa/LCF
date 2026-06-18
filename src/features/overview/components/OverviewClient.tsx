@@ -45,15 +45,16 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
     }, [])
 
     return (
-        <div className="space-y-[30px]">
+        <div className="flex flex-col flex-1 space-y-[30px]">
             {/* ── Default: Bento Grid Layout ── */}
             {activeSection === SECTION.home && (
-                <div className="space-y-[30px]">
+                <div className="flex flex-col flex-1 space-y-0">
                     <PageHeader
                         title="Overview"
                         description="Manage HQS Inventory, Vessels, and Equipment"
                         subtitle="Equipment Management and Monitoring System"
                         Icon={Shield}
+                        bannerImage="/images/banners/banner-general-button.webp"
                         actions={
                             MANAGEMENT_TABS.map((tab) => {
                                 const href = tab.href(basePath)
@@ -63,7 +64,7 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
                                     <Link
                                         key={tab.label}
                                         href={href}
-                                        className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all border ${isActive
+                                        className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border ${isActive
                                             ? 'bg-primary text-white border-primary'
                                             : 'bg-white text-primary border-primary hover:bg-primary hover:text-white'
                                             }`}
@@ -76,15 +77,12 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
                         }
                     />
 
-                    {/* ── Welcome Banner Photo ── */}
-                    <div className="relative w-full h-[300px] md:h-[520px] mt-[30px] overflow-hidden border border-gray-200 bg-gray-50">
+                    <div className="relative w-full flex-1 overflow-hidden border border-gray-200 bg-gray-50">
                         <img
                             src="/images/main/welcome.webp"
                             alt="Welcome"
-                            className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
+                            className="w-full h-full object-cover"
                         />
-                        {/* Tactical Overlay */}
-                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/80 to-transparent z-10" />
                     </div>
                 </div>
             )}

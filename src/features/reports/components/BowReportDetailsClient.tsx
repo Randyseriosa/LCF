@@ -156,11 +156,18 @@ export function BowReportDetailsClient({
   return (
     <div className="space-y-3">
       {/* Title Card / Header */}
-      <div className="bg-surface shadow-card border border-foreground/10 p-6">
-        <div className="flex items-start gap-4">
+      <div className="relative bg-surface shadow-card border border-foreground/10 p-6 overflow-hidden mb-[10px]">
+        {/* Generic Banner Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-right bg-no-repeat z-0 opacity-60"
+          style={{ backgroundImage: 'url(/images/banners/banner-general.webp)' }}
+          aria-hidden="true"
+        />
+
+        <div className="relative z-10 flex items-start gap-4">
           <Link
             href={reportsPath}
-            className="flex items-center justify-center w-8 h-8 border border-foreground/10 hover:bg-foreground/5 text-foreground-muted hover:text-foreground transition-all mt-0.5"
+            className="flex items-center justify-center w-8 h-8 border border-foreground/10 bg-background/50 hover:bg-foreground/5 text-foreground-muted hover:text-foreground transition-all mt-0.5"
             title="Back to Bow Manifests"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -177,6 +184,9 @@ export function BowReportDetailsClient({
             </div>
           </div>
         </div>
+
+        {/* Tactical Accent Bar */}
+        <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-primary via-primary/60 to-transparent z-10" />
       </div>
 
       {/* Items grouped by equipment */}

@@ -6,15 +6,16 @@ import { ArrowLeftRight } from 'lucide-react'
 import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTransfer'
 import { HistoryLogs } from '@/features/hlcf/components/HistoryLogs'
 
-export function ItemsDisplacementClient() {
+export function ItemDisplacementClient() {
     const [activeTab, setActiveTab] = useState<'displacement' | 'history'>('displacement')
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Items Displacement"
+                title="Item Displacement"
                 description="Transfer items between vessels"
                 Icon={ArrowLeftRight}
+                bannerImage="/images/banners/banner-general.webp"
             />
 
             {/* Segmented Control */}
@@ -26,7 +27,7 @@ export function ItemsDisplacementClient() {
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}
                 >
-                    Items Displacement
+                    Item Displacement
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}

@@ -69,7 +69,7 @@ interface MasterlistItem {
   date_last_pms: string | null
   date_last_repair: string | null
   running_hours: number | null
-  status: string
+  is_status: string
   remarks: string
   quantity: number | null
   items: {
@@ -258,6 +258,7 @@ export function useInventoryReport() {
           replenished: null,
           balance_on_hand: null,
           report_id: '',
+          status: '-',
           monthly_reports: {
             report_month: null,
             vessels: {

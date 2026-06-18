@@ -39,12 +39,13 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
     const currentTabs = mainTab === 'monthly' ? monthlyTabs : derangementTabs
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col">
             <PageHeader
-                title={mainTab === 'monthly' ? "Monthly Report" : "Equipment Derangement Reports"}
+                title={mainTab === 'monthly' ? "Monthly Inventory Report" : "Equipment Derangement Reports"}
                 description={mainTab === 'monthly' ? "Manage and View monthly reports." : "Track and manage equipment derangements."}
                 onBack={() => router.push(basePath)}
                 Icon={mainTab === 'monthly' ? FileText : AlertTriangle}
+                bannerImage="/images/banners/banner-general-button.webp"
                 actions={
                     <div className="flex bg-surface border border-foreground/10 w-fit">
                         <button
@@ -54,7 +55,7 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
                                 : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                                 }`}
                         >
-                            Monthly Report
+                            Monthly Inventory Report
                         </button>
                         <button
                             onClick={() => setMainTab('derangement')}
@@ -69,53 +70,56 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
                 }
             />
 
-            {/* Sub Tabs Indicator Bar */}
-            <div className="flex border-b border-foreground/10">
-                {currentTabs.map((tab) => {
-                    const Icon = tab.icon
-                    const isActive = activeSubTab === tab.id
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => mainTab === 'monthly' ? setActiveMonthlyTab(tab.id) : setActiveDerangementTab(tab.id)}
-                            className={`
+            <div className="space-y-6">
+                {/* Sub Tabs Indicator Bar */}
+                <div className="flex border-b border-foreground/10">
+
+                    {currentTabs.map((tab) => {
+                        const Icon = tab.icon
+                        const isActive = activeSubTab === tab.id
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => mainTab === 'monthly' ? setActiveMonthlyTab(tab.id) : setActiveDerangementTab(tab.id)}
+                                className={`
                 flex items-center gap-2 px-6 py-4 text-xs font-bold uppercase tracking-widest
                 border-b-2 transition-all duration-200
                 ${isActive
-                                    ? 'border-primary text-primary bg-primary/5'
-                                    : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-foreground/5'
-                                }
+                                        ? 'border-primary text-primary bg-primary/5'
+                                        : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-foreground/5'
+                                    }
               `}
-                        >
-                            <Icon className="w-4 h-4" aria-hidden="true" />
-                            {tab.label}
-                        </button>
-                    )
-                })}
-            </div>
+                            >
+                                <Icon className="w-4 h-4" aria-hidden="true" />
+                                {tab.label}
+                            </button>
+                        )
+                    })}
+                </div>
 
-            {/* Content Area */}
-            <div>
-                {mainTab === 'monthly' && (
-                    <>
-                        {activeMonthlyTab === 'status' && (
-                            <BowReportsClient basePath={basePath} />
-                        )}
-                        {activeMonthlyTab === 'import' && showImport && (
-                            <ImportPageClient mode="monthly" />
-                        )}
-                    </>
-                )}
-                {mainTab === 'derangement' && (
-                    <>
-                        {activeDerangementTab === 'derangement' && (
-                            <DerangementItemsClient />
-                        )}
-                        {activeDerangementTab === 'import' && showImport && (
-                            <DerangementImportClient />
-                        )}
-                    </>
-                )}
+                {/* Content Area */}
+                <div>
+                    {mainTab === 'monthly' && (
+                        <>
+                            {activeMonthlyTab === 'status' && (
+                                <BowReportsClient basePath={basePath} />
+                            )}
+                            {activeMonthlyTab === 'import' && showImport && (
+                                <ImportPageClient mode="monthly" />
+                            )}
+                        </>
+                    )}
+                    {mainTab === 'derangement' && (
+                        <>
+                            {activeDerangementTab === 'derangement' && (
+                                <DerangementItemsClient />
+                            )}
+                            {activeDerangementTab === 'import' && showImport && (
+                                <DerangementImportClient />
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     )

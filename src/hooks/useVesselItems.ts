@@ -49,13 +49,14 @@ export function useVesselItems(vesselId: string | null, period?: { month: number
                         nomenclature,
                         serial_number,
                         classification,
-                        status,
+                        is_status,
                         equipments!inner (
                             name,
                             unique_code
                         ),
                         monthly_report_items (
                             remarks,
+                            status,
                             monthly_reports!inner (
                                 report_month
                             )
@@ -83,7 +84,7 @@ export function useVesselItems(vesselId: string | null, period?: { month: number
                         nomenclature: item.nomenclature,
                         serial_number: item.serial_number,
                         classification: item.classification,
-                        status: item.status,
+                        status: item.monthly_report_items?.[0]?.status || '-',
                         equipment_name: item.equipments?.name || 'Unknown',
                         equipment_code: item.equipments?.unique_code || 'Unknown',
                         monthly_remarks: item.monthly_report_items?.[0]?.remarks || null,

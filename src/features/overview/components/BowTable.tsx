@@ -115,7 +115,7 @@ export function BowTable({ classId, className: vesselClassName }: BowTableProps)
                         placeholder="Search bow number…"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full border border-foreground/10 bg-background py-2.5 pl-9 pr-4 text-sm text-foreground transition-shadow placeholder:text-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full border border-foreground/10 bg-background py-2.5 pl-9 pr-4 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                 </div>
             </div>
@@ -142,7 +142,7 @@ export function BowTable({ classId, className: vesselClassName }: BowTableProps)
                                         <button
                                             type="button"
                                             onClick={() => toggleSort('bow_number')}
-                                            className="inline-flex items-center gap-1.5 text-foreground-muted font-semibold hover:text-foreground transition-colors bg-transparent border-none cursor-pointer p-0 text-xs"
+                                            className="inline-flex items-center gap-1.5 text-foreground-muted font-semibold bg-transparent border-none cursor-pointer p-0 text-xs"
                                         >
                                             Bow Number
                                             <ArrowUpDown className={`w-3.5 h-3.5 ${sortField === 'bow_number' ? 'text-primary' : 'text-foreground/30'}`} />
@@ -152,7 +152,7 @@ export function BowTable({ classId, className: vesselClassName }: BowTableProps)
                                         <button
                                             type="button"
                                             onClick={() => toggleSort('created_at')}
-                                            className="inline-flex items-center gap-1.5 text-foreground-muted font-semibold hover:text-foreground transition-colors bg-transparent border-none cursor-pointer p-0 text-xs"
+                                            className="inline-flex items-center gap-1.5 text-foreground-muted font-semibold bg-transparent border-none cursor-pointer p-0 text-xs"
                                         >
                                             Date Added
                                             <ArrowUpDown className={`w-3.5 h-3.5 ${sortField === 'created_at' ? 'text-primary' : 'text-foreground/30'}`} />
@@ -171,7 +171,7 @@ export function BowTable({ classId, className: vesselClassName }: BowTableProps)
                                     filtered.map((vessel, index) => (
                                         <tr
                                             key={vessel.id}
-                                            className="border-b border-foreground/5 transition-colors last:border-b-0 hover:bg-secondary/10"
+                                            className="border-b border-foreground/5 last:border-b-0"
                                         >
                                             <td className="px-4 py-2 text-xs tabular-nums text-foreground-muted whitespace-nowrap sm:px-4">
                                                 {index + 1}

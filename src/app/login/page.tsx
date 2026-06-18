@@ -116,7 +116,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* The Scanner Sweep (Angular Gradient) - Full Coverage */}
-                    <div className="absolute flex items-center justify-center pointer-events-none animate-sweep"
+                    <div className="absolute flex items-center justify-center pointer-events-none"
                         style={{ width: 2200, height: 2200 }}>
                         <div
                             className="w-full h-full rounded-full"
@@ -133,11 +133,11 @@ export default function LoginPage() {
 
                     {/* Blips (Random tactical points scattered across larger area) */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ opacity: 0.6 }}>
-                        <div className="absolute w-2 h-2 bg-white/60 rounded-full -translate-x-48 -translate-y-64 blur-[2px] animate-pulse" />
-                        <div className="absolute w-1.5 h-1.5 bg-white/40 rounded-full translate-x-80 -translate-y-20 blur-[1px] animate-pulse" style={{ animationDelay: '1s' }} />
-                        <div className="absolute w-2 h-2 bg-white/50 rounded-full -translate-x-20 translate-y-96 blur-[1.5px] animate-pulse" style={{ animationDelay: '2s' }} />
-                        <div className="absolute w-1.5 h-1.5 bg-white/30 rounded-full translate-x-[400px] translate-y-[-300px] blur-[1px] animate-pulse" style={{ animationDelay: '1.5s' }} />
-                        <div className="absolute w-2 h-2 bg-white/40 rounded-full translate-x-[-350px] translate-y-[200px] blur-[1px] animate-pulse" style={{ animationDelay: '0.5s' }} />
+                        <div className="absolute w-2 h-2 bg-white/60 rounded-full -translate-x-48 -translate-y-64 blur-[2px]" />
+                        <div className="absolute w-1.5 h-1.5 bg-white/40 rounded-full translate-x-80 -translate-y-20 blur-[1px]" style={{ animationDelay: '1s' }} />
+                        <div className="absolute w-2 h-2 bg-white/50 rounded-full -translate-x-20 translate-y-96 blur-[1.5px]" style={{ animationDelay: '2s' }} />
+                        <div className="absolute w-1.5 h-1.5 bg-white/30 rounded-full translate-x-[400px] translate-y-[-300px] blur-[1px]" style={{ animationDelay: '1.5s' }} />
+                        <div className="absolute w-2 h-2 bg-white/40 rounded-full translate-x-[-350px] translate-y-[200px] blur-[1px]" style={{ animationDelay: '0.5s' }} />
                     </div>
 
                     {/* Emblem — perfectly centered */}
@@ -145,7 +145,7 @@ export default function LoginPage() {
                         <img
                             src="/images/logo/logo-login.png"
                             alt="LCFPF Global Logo"
-                            className="w-full max-w-xs h-auto object-contain animate-breathe"
+                            className="w-full max-w-xs h-auto object-contain"
                             style={{
                                 filter: 'drop-shadow(0 4px 32px rgba(0,0,0,0.5))',
                             }}
