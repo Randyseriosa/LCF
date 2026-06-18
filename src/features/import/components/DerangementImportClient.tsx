@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useRef, useMemo } from 'react'
-import { Upload, FileText, AlertCircle, Search, XCircle, ChevronRight, Anchor, Check, Ship, Calendar, Clock, ExternalLink } from 'lucide-react'
+import { Upload, FileText, AlertCircle, Search, XCircle, ChevronRight, Anchor, Check, Ship, Calendar, Clock, ExternalLink, Trash2 } from 'lucide-react'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { getAuthUser } from '@/lib/auth'
 import { useVessels } from '@/hooks/useVessels'
@@ -36,6 +37,8 @@ export function DerangementImportClient() {
     const [error, setError] = useState<string | null>(null)
     const [showSuccessModal, setShowSuccessModal] = useState(false)
     const [successModalData, setSuccessModalData] = useState({ title: '', message: '' })
+    const [showConfirmModal, setShowConfirmModal] = useState(false)
+    const [reportToDelete, setReportToDelete] = useState<{ id: string, filename: string } | null>(null)
     const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
     const { vessels, loading: loadingVessels } = useVessels()
@@ -220,6 +223,50 @@ export function DerangementImportClient() {
             setError(err.message || 'Failed to submit derangement reports')
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    const handleDeleteReport = async (reportId: string, filename: string) => {
+        setReportToDelete({ id: reportId, filename })
+        setShowConfirmModal(true)
+    }
+
+    const confirmDeleteReport = async () => {
+        if (!reportToDelete) return
+        const { id, filename } = reportToDelete
+
+        setIsSubmitting(true)
+        setError(null)
+        setShowConfirmModal(false)
+
+        try {
+            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
+            const token = match ? decodeURIComponent(match[1]) : null
+            if (!token) throw new Error('Not authenticated')
+
+            const supabase = createClient()
+            const { data, error: functionError } = await supabase.functions.invoke('delete-derangement-report', {
+                body: { id },
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+
+            if (functionError) throw functionError
+            if (data?.error) throw new Error(data.error)
+
+            // Refresh history
+            refreshHistory()
+
+            setSuccessModalData({
+                title: 'Data Deleted',
+                message: `REPORT: "${filename}" HAS BEEN PURGED FROM SYSTEM.`
+            })
+            setShowSuccessModal(true)
+        } catch (err: any) {
+            console.error('Delete error:', err)
+            setError(err.message || 'Failed to delete report')
+        } finally {
+            setIsSubmitting(false)
+            setReportToDelete(null)
         }
     }
 
@@ -611,20 +658,45 @@ export function DerangementImportClient() {
                                         </span>
                                     </div>
                                 </div>
-                                <a
-                                    href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/derangement-reports/${imp.file_path}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-2 w-full py-2 bg-foreground/5 hover:bg-primary/10 text-foreground-muted hover:text-primary border border-foreground/10 hover:border-primary/20 transition-all text-[10px] font-bold uppercase tracking-widest"
-                                >
-                                    <ExternalLink className="w-3 h-3" />
-                                    Open Report
-                                </a>
+                                <div className="flex items-center gap-2 mt-4">
+                                    <a
+                                        href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/derangement-reports/${imp.file_path}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-foreground/5 hover:bg-primary/10 text-foreground-muted hover:text-primary border border-foreground/10 hover:border-primary/20 transition-all text-[10px] font-bold uppercase tracking-widest"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Open Report
+                                    </a>
+                                    <button
+                                        onClick={() => handleDeleteReport(imp.id, imp.filename)}
+                                        disabled={isSubmitting}
+                                        className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 disabled:opacity-50 transition-all"
+                                        title="Delete Report"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* ── Confirm Delete Modal ── */}
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => {
+                    setShowConfirmModal(false)
+                    setReportToDelete(null)
+                }}
+                onConfirm={confirmDeleteReport}
+                title="Confirm Deletion"
+                message={`ARE YOU CERTAIN YOU WANT TO DELETE "${reportToDelete?.filename}"? THIS ACTION IS IRREVERSIBLE AND WILL PERMANENTLY REMOVE THE DATA FROM THE DEEP DECK STORAGE.`}
+                confirmText="PURGE DATA"
+                cancelText="ABORT"
+                confirmButtonClassName="px-6 py-2.5 text-[10px] font-black bg-primary text-background hover:bg-primary/90 transition-colors uppercase tracking-widest"
+            />
 
             {/* ── Success Modal ── */}
             <SuccessModal

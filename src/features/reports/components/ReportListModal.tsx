@@ -4,6 +4,8 @@ import React from 'react'
 import { X, FileText, ExternalLink, Ship, Calendar, Trash2, AlertCircle } from 'lucide-react'
 import { useItemDerangementReports } from '@/hooks/useDerangementItems'
 import { createClient } from '@/lib/supabase/client'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { SuccessModal } from '@/components/ui/SuccessModal'
 
 interface ReportListModalProps {
     isOpen: boolean
@@ -48,12 +50,23 @@ export function ReportListModal({
     const { reports, loading, error, refresh } = useItemDerangementReports(itemId, vesselId, { month: selectedMonth, year: selectedYear })
     const [isDeleting, setIsDeleting] = React.useState<string | null>(null)
     const [deleteError, setDeleteError] = React.useState<string | null>(null)
+    const [showConfirmModal, setShowConfirmModal] = React.useState(false)
+    const [reportToDelete, setReportToDelete] = React.useState<{ id: string, filename: string } | null>(null)
+    const [showSuccessModal, setShowSuccessModal] = React.useState(false)
+    const [successMessage, setSuccessMessage] = React.useState('')
 
-    const handleDelete = async (reportId: string) => {
-        if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) return
+    const handleDelete = (reportId: string, filename: string) => {
+        setReportToDelete({ id: reportId, filename })
+        setShowConfirmModal(true)
+    }
+
+    const confirmDelete = async () => {
+        if (!reportToDelete) return
+        const { id: reportId, filename } = reportToDelete
 
         setIsDeleting(reportId)
         setDeleteError(null)
+        setShowConfirmModal(false)
 
         try {
             const supabase = createClient()
@@ -61,13 +74,17 @@ export function ReportListModal({
             const token = match ? decodeURIComponent(match[1]) : null
             if (!token) throw new Error('Not authenticated')
 
-            const { data, error: functionError } = await supabase.functions.invoke('manage-derangement-report', {
-                body: { id: reportId, action: 'delete' },
+            const { data, error: functionError } = await supabase.functions.invoke('delete-derangement-report', {
+                body: { id: reportId },
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
             if (functionError) throw functionError
             if (data?.error) throw new Error(data.error)
+
+            // Success message
+            setSuccessMessage(`REPORT: "${filename}" DELETED SUCCESSFULLY.`)
+            setShowSuccessModal(true)
 
             // Refresh the lists
             refresh()
@@ -77,6 +94,7 @@ export function ReportListModal({
             setDeleteError(err.message || 'Failed to delete report')
         } finally {
             setIsDeleting(null)
+            setReportToDelete(null)
         }
     }
 
@@ -169,7 +187,7 @@ export function ReportListModal({
                                             View PDF
                                         </a>
                                         <button
-                                            onClick={() => handleDelete(report.id)}
+                                            onClick={() => handleDelete(report.id, report.filename)}
                                             disabled={isDeleting === report.id}
                                             className="flex h-[34px] w-[34px] items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white disabled:opacity-50 transition-colors shadow-sm border border-red-500/20"
                                             title="Delete Report"
@@ -205,6 +223,29 @@ export function ReportListModal({
                     </button>
                 </div>
             </div>
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => {
+                    setShowConfirmModal(false)
+                    setReportToDelete(null)
+                }}
+                onConfirm={confirmDelete}
+                title="Confirm report DELETION"
+                message={`ARE YOU CERTAIN YOU WANT TO PERMANENTLY REMOVE "${reportToDelete?.filename}"? THIS ACTION CANNOT BE REVERSED.`}
+                confirmText="PURGE REPORT"
+                cancelText="ABORT"
+                confirmButtonClassName="px-6 py-2.5 text-[10px] font-black bg-primary text-background hover:bg-primary/90 transition-colors uppercase tracking-widest"
+            />
+
+            {/* Success Modal */}
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                title="Operation Successful"
+                message={successMessage}
+            />
         </div>
     )
 }
