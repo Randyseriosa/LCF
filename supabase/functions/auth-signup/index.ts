@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -107,9 +108,9 @@ Deno.serve(async (req: Request) => {
             return errorResponse('Failed to create profile', 500)
         }
 
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
             success: true,
-            user_id: authUser.id 
+            user_id: authUser.id
         }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
         })

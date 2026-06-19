@@ -15,8 +15,6 @@ interface ReportListModalProps {
     vesselBow: string | null
     itemCode: string | null
     itemNomenclature: string | null
-    selectedMonth: number
-    selectedYear: number
     onRefresh: () => void
 }
 
@@ -43,11 +41,9 @@ export function ReportListModal({
     vesselBow,
     itemCode,
     itemNomenclature,
-    selectedMonth,
-    selectedYear,
     onRefresh
 }: ReportListModalProps) {
-    const { reports, loading, error, refresh } = useItemDerangementReports(itemId, vesselId, { month: selectedMonth, year: selectedYear })
+    const { reports, loading, error, refresh } = useItemDerangementReports(itemId, vesselId)
     const [isDeleting, setIsDeleting] = React.useState<string | null>(null)
     const [deleteError, setDeleteError] = React.useState<string | null>(null)
     const [showConfirmModal, setShowConfirmModal] = React.useState(false)
@@ -124,10 +120,6 @@ export function ReportListModal({
                             <span>•</span>
                             <div className="flex items-center gap-1">
                                 <span className="text-background">{itemCode}</span>
-                            </div>
-                            <span>•</span>
-                            <div className="flex items-center gap-1">
-                                <span>{MONTHS[selectedMonth]} {selectedYear}</span>
                             </div>
                         </div>
                     </div>

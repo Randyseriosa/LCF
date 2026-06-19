@@ -632,6 +632,12 @@ export function ImportItemsModal({
 
             console.log('Sending items to import:', itemsToImport.length)
 
+            if (itemsToImport.length === 0) {
+                setError('No new items to import. All items in the file already exist in the system.')
+                setIsImporting(false)
+                return
+            }
+
             const payload = {
                 equipment_id: equipmentId,
                 items: itemsToImport

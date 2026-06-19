@@ -284,6 +284,7 @@ export function VesselsPageClient({ role, basePath }: { role: Role, basePath: st
                 description="View class of vessels and bow numbers"
                 onBack={() => router.push(basePath)}
                 Icon={Ship}
+                bannerImage="/images/banners/banner-general.webp"
             />
 
             <div className="space-y-6">

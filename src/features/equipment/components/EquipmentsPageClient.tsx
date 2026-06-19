@@ -325,6 +325,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                 description="Manage and Group items by equipment"
                 onBack={() => router.push(basePath)}
                 Icon={Wrench}
+                bannerImage="/images/banners/banner-general-button.webp"
                 actions={
                     <div className="flex gap-3">
                         {(role === ROLES.admin || role === ROLES.encoder) && (

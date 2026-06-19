@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
     console.log('Received payload - equipment_id:', equipment_id, 'vessel_id:', vessel_id, 'items count:', items?.length)
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return errorResponse('items array is required and must not be empty', 400)
+      return errorResponse('No new items to import. All items in the file may already exist in the system or no valid items were found.', 400)
     }
 
     const supabaseAdmin = createClient(

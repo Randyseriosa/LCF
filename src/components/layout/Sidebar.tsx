@@ -47,7 +47,7 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: '/admin', icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: '/admin/global-inventory-view', icon: FileText },
-                { name: 'Report', href: '/admin/monthly-report', icon: FileBarChart2 },
+                { name: 'Reports', href: '/admin/monthly-report', icon: FileBarChart2 },
                 { name: 'Item Displacement', href: '/admin/item-displacement', icon: ArrowLeftRight },
                 { name: 'Item Management', href: '/admin/unserviceable-items', icon: Archive },
                 { name: 'Settings', href: '/admin/settings', icon: Settings },
@@ -59,7 +59,7 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
-                { name: 'Report', href: `/${role}/monthly-report`, icon: FileBarChart2 },
+                { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
                 { name: 'Item Displacement', href: `/${role}/item-displacement`, icon: ArrowLeftRight },
                 { name: 'Item Management', href: `/${role}/unserviceable-items`, icon: Archive },
                 { name: 'Settings', href: `/${role}/settings`, icon: Settings }
@@ -71,16 +71,13 @@ export function Sidebar({ role }: { role: Role }) {
         <aside className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-white border-r border-gray-200">
             {/* Header Block */}
             <div className="flex flex-col items-center gap-3 px-6 py-10">
-                <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-gray-100 bg-white p-1">
+                <div className="relative h-[160px] w-[160px] overflow-hidden rounded-full border-2 border-gray-100 bg-white p-1">
                     <img
                         src="/images/logo/logo.png"
                         alt="LCF Philippine Fleet Emblem"
                         className="h-full w-full object-contain rounded-full"
                     />
                 </div>
-                <span className="text-primary font-bold tracking-[0.2em] text-lg">
-                    LCF
-                </span>
             </div>
 
             {/* Navigation */}

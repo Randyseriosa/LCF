@@ -1,4 +1,5 @@
 // @ts-nocheck
+/// <reference path="../deno.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { verifyToken } from "../_shared/jwt.ts"
 

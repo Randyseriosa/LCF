@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken } from '../_shared/jwt.ts'
 
@@ -59,7 +60,7 @@ Deno.serve(async (req: Request) => {
         // Verify password — use salt when present (salted accounts), else legacy plain hash
         const passwordHash = await hashPassword(password, authUser.password_salt ?? null)
         console.log('Password verification:', { hasSalt: !!authUser.password_salt, match: passwordHash === authUser.password_hash })
-        
+
         if (passwordHash !== authUser.password_hash) {
             console.log('Password mismatch')
             return errorResponse('Invalid username or password', 401)

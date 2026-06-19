@@ -1,30 +1,13 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { AlertTriangle, Search, XCircle, Ship, RefreshCw, ExternalLink, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Search, XCircle, Ship, RefreshCw, ExternalLink } from 'lucide-react'
 import { useDerangementItems, DerangementItem } from '@/hooks/useDerangementItems'
 import { ReportListModal } from './ReportListModal'
-import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 
-const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-]
-
-function formatReportMonth(reportMonth: string | null): string {
-    if (!reportMonth) return '-'
-    try {
-        const [y, m] = reportMonth.split('-')
-        return `${MONTHS[parseInt(m) - 1]} ${y}`
-    } catch {
-        return reportMonth
-    }
-}
 
 export function DerangementItemsClient() {
-    const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
-    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-    const { items, loading, error, refresh } = useDerangementItems({ month: selectedMonth, year: selectedYear })
+    const { items, loading, error, refresh } = useDerangementItems()
     const [search, setSearch] = useState('')
     const [selectedItem, setSelectedItem] = useState<DerangementItem | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -52,14 +35,6 @@ export function DerangementItemsClient() {
         <div className="space-y-3">
             {/* Controls Bar */}
             <div className="flex items-center gap-3 bg-surface border border-foreground/10 p-3 shadow-card">
-                <MonthYearPicker
-                    month={selectedMonth}
-                    year={selectedYear}
-                    onChange={(m, y) => {
-                        setSelectedMonth(m)
-                        setSelectedYear(y)
-                    }}
-                />
 
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
@@ -218,8 +193,6 @@ export function DerangementItemsClient() {
                 vesselBow={selectedItem?.vessel_bow || null}
                 itemCode={selectedItem?.unique_code || null}
                 itemNomenclature={selectedItem?.nomenclature || null}
-                selectedMonth={selectedMonth}
-                selectedYear={selectedYear}
                 onRefresh={refresh}
             />
         </div>

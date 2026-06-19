@@ -29,7 +29,7 @@ interface OverviewClientProps {
 }
 
 const MANAGEMENT_TABS = [
-    { label: 'HQS Inventory Management', href: (base: string) => `${base}/hlcf`, icon: Package },
+    { label: 'HLCF INVENTORY MANAGEMENT', href: (base: string) => `${base}/hlcf`, icon: Package },
     { label: 'Vessel Management', href: (base: string) => `${base}/vessels`, icon: Ship },
     { label: 'Equipment Management', href: (base: string) => `${base}/equipments`, icon: Wrench },
 ] as const
@@ -51,7 +51,7 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
                 <div className="flex flex-col flex-1 space-y-0">
                     <PageHeader
                         title="Overview"
-                        description="Manage HQS Inventory, Vessels, and Equipment"
+                        description="Manage HLCF Inventory, Vessels, and Equipment"
                         subtitle="Equipment Management and Monitoring System"
                         Icon={Shield}
                         bannerImage="/images/banners/banner-general-button.webp"
