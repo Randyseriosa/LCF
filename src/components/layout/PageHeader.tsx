@@ -25,7 +25,7 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
     const hasBanner = !!bannerImage
 
     return (
-        <div className="relative bg-white border border-gray-200 overflow-hidden mb-[10px]">
+        <div className="relative bg-white overflow-hidden mb-[10px]">
             {/* Banner photo — full bleed behind the header, visible on the right */}
             {hasBanner && (
                 <div
@@ -35,18 +35,18 @@ export function PageHeader({ title, description, subtitle, Icon, actions, onBack
                 />
             )}
             {/* Content panel — now with transparent background when banner is present */}
-            <div className={`relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-[30px] p-[30px] border-b border-gray-100 ${hasBanner ? 'bg-transparent' : 'bg-white'}`}>
+            <div className={`relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-[30px] p-[30px] ${hasBanner ? 'bg-transparent' : 'bg-white'}`}>
                 <div className="flex items-center gap-[30px]">
                     {onBack ? (
                         <button
                             onClick={onBack}
-                            className="flex h-12 w-12 items-center justify-center bg-gray-50 border border-gray-100 shrink-0 hover:bg-gray-100 group"
+                            className="flex h-12 w-12 items-center justify-center bg-gray-50 shrink-0 hover:bg-gray-100 group"
                             title="Go Back"
                         >
                             <ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-primary" aria-hidden="true" />
                         </button>
                     ) : Icon && (
-                        <div className="flex h-12 w-12 items-center justify-center bg-gray-50 border border-gray-100 shrink-0">
+                        <div className="flex h-12 w-12 items-center justify-center bg-gray-50 shrink-0">
                             <Icon className="w-6 h-6 text-slate-400" aria-hidden="true" />
                         </div>
                     )}

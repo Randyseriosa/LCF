@@ -246,7 +246,7 @@ export function BowInventoryTransfer() {
     return (
         <div className="flex flex-col md:flex-row gap-6 w-full items-start">
             {/* LEFT COLUMN: Source */}
-            <div className="flex-1 bg-surface border border-foreground/5 shadow-card p-4 h-[500px] flex flex-col">
+            <div className="flex-1 bg-surface border border-foreground/5 shadow-card p-4 min-h-[400px] flex flex-col">
                 <h3 className="text-foreground font-semibold text-[16px] mb-4 uppercase tracking-widest">Source</h3>
                 <SearchableSelect
                     value={sourceVesselId}
@@ -418,7 +418,7 @@ export function BowInventoryTransfer() {
             </div>
 
             {/* RIGHT COLUMN: Recipient */}
-            <div className="flex-1 bg-surface border border-foreground/5 shadow-card p-4 h-[500px] flex flex-col">
+            <div className="flex-1 bg-surface border border-foreground/5 shadow-card p-4 min-h-[400px] flex flex-col">
                 <h3 className="text-foreground font-semibold text-[16px] mb-4 uppercase tracking-widest">Recipient</h3>
                 <SearchableSelect
                     value={targetVesselId}
