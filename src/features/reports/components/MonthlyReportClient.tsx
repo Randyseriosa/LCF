@@ -2,15 +2,17 @@
 
 import React, { useState } from 'react'
 import { ClipboardList, Upload, FileText, AlertTriangle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { BowReportsClient } from './BowReportsClient'
 import { ImportPageClient } from '@/features/import/components/ImportPageClient'
 import { DerangementImportClient } from '@/features/import/components/DerangementImportClient'
 import { DerangementItemsClient } from './DerangementItemsClient'
+import { MonthlyReportAttachmentsClient } from './MonthlyReportAttachmentsClient'
+import { ImportMonthlyAttachmentClient } from './ImportMonthlyAttachmentClient'
 
 type MainTab = 'monthly' | 'derangement'
-type SubTab = 'status' | 'import' | 'derangement'
+type SubTab = 'status' | 'import' | 'derangement' | 'attachments' | 'import-attachment'
 
 interface MonthlyReportClientProps {
     basePath: string
@@ -19,14 +21,30 @@ interface MonthlyReportClientProps {
 
 export function MonthlyReportClient({ basePath, showImport = false }: MonthlyReportClientProps) {
     const router = useRouter()
-    const [mainTab, setMainTab] = useState<MainTab>('monthly')
-    const [activeMonthlyTab, setActiveMonthlyTab] = useState<SubTab>('status')
-    const [activeDerangementTab, setActiveDerangementTab] = useState<SubTab>('derangement')
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+
+    const mainTab = (searchParams.get('tab') as MainTab) || 'monthly'
+    const activeMonthlyTab = (searchParams.get('sub') as SubTab) || 'status'
+    const activeDerangementTab = (searchParams.get('sub') as SubTab) || 'derangement'
+
+    const updateParams = (newMain?: MainTab, newSub?: SubTab) => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (newMain) params.set('tab', newMain)
+        if (newSub) params.set('sub', newSub)
+        router.replace(`${pathname}?${params.toString()}`)
+    }
+
+    const setMainTab = (tab: MainTab) => updateParams(tab, tab === 'monthly' ? 'status' : 'derangement')
+    const setActiveMonthlyTab = (tab: SubTab) => updateParams('monthly', tab)
+    const setActiveDerangementTab = (tab: SubTab) => updateParams('derangement', tab)
 
     // Monthly Sub-tabs
     const monthlyTabs: { id: SubTab; label: string; icon: React.ElementType }[] = [
         { id: 'status', label: 'Status of Report', icon: ClipboardList },
         ...(showImport ? [{ id: 'import' as SubTab, label: 'Import Report', icon: Upload }] : []),
+        { id: 'attachments', label: 'Attachments', icon: FileText },
+        ...(showImport ? [{ id: 'import-attachment' as SubTab, label: 'Import Attachment', icon: Upload }] : []),
     ]
 
     // Derangement Sub-tabs
@@ -104,8 +122,14 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
                             {activeMonthlyTab === 'status' && (
                                 <BowReportsClient basePath={basePath} />
                             )}
+                            {activeMonthlyTab === 'attachments' && (
+                                <MonthlyReportAttachmentsClient />
+                            )}
                             {activeMonthlyTab === 'import' && showImport && (
                                 <ImportPageClient mode="monthly" />
+                            )}
+                            {activeMonthlyTab === 'import-attachment' && showImport && (
+                                <ImportMonthlyAttachmentClient />
                             )}
                         </>
                     )}

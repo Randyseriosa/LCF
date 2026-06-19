@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useVesselsWithReportStatus } from '@/hooks/useVesselsWithReportStatus'
-import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText, Search, X } from 'lucide-react'
+import { useMonthlyReportAttachments } from '@/hooks/useMonthlyReportAttachments'
+import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertTriangle, FileText, Search, X, Paperclip } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SuccessModal } from '@/components/ui/SuccessModal'
@@ -56,6 +57,13 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
         bowNumberFilter: bowNumberFilter || null,
         submittedStatus
     })
+
+    const { attachments, loading: loadingAttachments } = useMonthlyReportAttachments({
+        month: selectedMonth,
+        year: selectedYear
+    })
+
+    const attachmentVesselIds = new Set(attachments.map(a => a.vessel_id))
 
     const [hasAction, setHasAction] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -264,12 +272,13 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                                     <tr>
                                         <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap">Bow</th>
                                         <th className="px-6 py-4 text-right text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap w-40">Status</th>
+                                        <th className="px-6 py-4 text-right text-[10px] font-bold text-foreground-muted uppercase tracking-[0.2em] whitespace-nowrap w-40">Attachment</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {!hasAction && (
                                         <tr>
-                                            <td colSpan={2} className="px-6 py-12 text-center bg-foreground/[0.01]">
+                                            <td colSpan={3} className="px-6 py-12 text-center bg-foreground/[0.01]">
                                                 <button
                                                     onClick={handleShowAll}
                                                     className="inline-flex items-center px-10 py-4 bg-primary text-white hover:bg-primary/90 transition-all shadow-xl text-[11px] font-black uppercase tracking-[0.3em] group"
@@ -316,6 +325,21 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
                                                         <div className="flex items-center gap-2 px-2.5 py-1 bg-foreground/5 border border-foreground/10 text-foreground-muted rounded-none">
                                                             <XCircle className="w-3 h-3" />
                                                             <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs whitespace-nowrap text-right w-40">
+                                                <div className="flex items-center justify-end">
+                                                    {attachmentVesselIds.has(vessel.id) ? (
+                                                        <div className="flex items-center gap-2 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-none">
+                                                            <CheckCircle className="w-3 h-3" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest">Attached</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 px-2.5 py-1 bg-foreground/5 border border-foreground/10 text-foreground-muted rounded-none">
+                                                            <XCircle className="w-3 h-3" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest">No File</span>
                                                         </div>
                                                     )}
                                                 </div>
