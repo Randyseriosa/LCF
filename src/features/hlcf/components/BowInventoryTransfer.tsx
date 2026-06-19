@@ -385,34 +385,38 @@ export function BowInventoryTransfer() {
 
             {/* MIDDLE COLUMN: Action */}
             <div className="flex md:flex-col items-center justify-start pt-4 px-2 gap-3">
-                {previewItems.length === 0 ? (
-                    <button
-                        onClick={handlePreview}
-                        disabled={previewing || selectedItemIds.size === 0 || !sourceVesselId || !targetVesselId || sourceVesselId === targetVesselId}
-                        className="bg-primary hover:bg-secondary-hover text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Preview Transfer"
-                    >
-                        {previewing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <ArrowRight className="w-5 h-5 hidden md:block mx-auto" />}
-                        {previewing ? null : <span className="md:hidden font-semibold uppercase tracking-widest text-xs">Preview</span>}
-                    </button>
-                ) : (
+                {sourceVesselId && (
                     <>
-                        <button
-                            onClick={handleTransfer}
-                            disabled={transferring}
-                            className="bg-primary hover:opacity-90 text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                            title="Confirm Transfer"
-                        >
-                            {transferring ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <span className="font-semibold uppercase tracking-widest text-xs">Confirm</span>}
-                        </button>
-                        <button
-                            onClick={() => { setPreviewItems([]); setCustomCodes({}); }}
-                            disabled={transferring}
-                            className="bg-error hover:bg-error-hover text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                            title="Cancel Preview"
-                        >
-                            <span className="font-semibold uppercase tracking-widest text-xs">Cancel</span>
-                        </button>
+                        {previewItems.length === 0 ? (
+                            <button
+                                onClick={handlePreview}
+                                disabled={previewing || selectedItemIds.size === 0 || !sourceVesselId || !targetVesselId || sourceVesselId === targetVesselId}
+                                className="bg-primary hover:bg-secondary-hover text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Preview Transfer"
+                            >
+                                {previewing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <ArrowRight className="w-5 h-5 hidden md:block mx-auto" />}
+                                {previewing ? null : <span className="md:hidden font-semibold uppercase tracking-widest text-xs">Preview</span>}
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={handleTransfer}
+                                    disabled={transferring}
+                                    className="bg-primary hover:opacity-90 text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                                    title="Confirm Transfer"
+                                >
+                                    {transferring ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <span className="font-semibold uppercase tracking-widest text-xs">Confirm</span>}
+                                </button>
+                                <button
+                                    onClick={() => { setPreviewItems([]); setCustomCodes({}); }}
+                                    disabled={transferring}
+                                    className="bg-error hover:bg-error-hover text-background p-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                                    title="Cancel Preview"
+                                >
+                                    <span className="font-semibold uppercase tracking-widest text-xs">Cancel</span>
+                                </button>
+                            </>
+                        )}
                     </>
                 )}
             </div>
