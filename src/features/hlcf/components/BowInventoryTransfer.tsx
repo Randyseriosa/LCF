@@ -384,7 +384,7 @@ export function BowInventoryTransfer() {
             </div>
 
             {/* MIDDLE COLUMN: Action */}
-            <div className="flex md:flex-col items-center justify-center py-4 px-2 self-center gap-3">
+            <div className="flex md:flex-col items-center justify-start pt-4 px-2 gap-3">
                 {previewItems.length === 0 ? (
                     <button
                         onClick={handlePreview}
