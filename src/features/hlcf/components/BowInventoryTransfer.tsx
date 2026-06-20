@@ -68,11 +68,25 @@ export function BowInventoryTransfer() {
 
         if (vId === 'hq') {
             // Fetch items that are NOT assigned to any vessel OR specifically HQ items
-            // Based on MasterListTab, HQ items have '-OLCF6-' in their unique code
-            const { data } = await supabase
+            // Based on MasterListTab, HQ items have '-OLCF6-' in their unique code 
+            // OR are explicitly assigned to the HQ vessel
+            const { data: hqVessel } = await supabase
+                .from('vessels')
+                .select('id')
+                .eq('slug', 'hq-inventory')
+                .single()
+
+            let query = supabase
                 .from('items')
                 .select('id, unique_code, nomenclature, classification')
-                .ilike('unique_code', '%-OLCF6-%')
+
+            if (hqVessel) {
+                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)
+            } else {
+                query = query.ilike('unique_code', '%-OLCF6-%')
+            }
+
+            const { data } = await query
 
             if (data) {
                 mapped = data.map(item => ({

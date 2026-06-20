@@ -41,11 +41,26 @@ export function MasterListTab() {
         setError(null)
         try {
             const supabase = createClient()
-            const { data, error: fetchError } = await supabase
+
+            // 1. Find the HQ vessel
+            const { data: hqVessel } = await supabase
+                .from('vessels')
+                .select('id')
+                .eq('slug', 'hq-inventory')
+                .single()
+
+            // 2. Fetch items - either explicitly assigned to HQ or have OLCF6 in code
+            let query = supabase
                 .from('items')
                 .select('*, equipments(name, unique_code)')
-                .ilike('unique_code', '%-OLCF6-%')
-                .order('unique_code', { ascending: true })
+
+            if (hqVessel) {
+                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)
+            } else {
+                query = query.ilike('unique_code', '%-OLCF6-%')
+            }
+
+            const { data, error: fetchError } = await query.order('unique_code', { ascending: true })
 
             if (fetchError) throw fetchError
             setItems(data || [])

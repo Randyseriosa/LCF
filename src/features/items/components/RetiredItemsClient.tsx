@@ -62,9 +62,16 @@ export function RetiredItemsClient() {
             }
 
             // 2. Fetch Unassigned items — only Bow-vessel items with no assignment.
-            //    Exclude HLCF/OLCF6 items: these are spare items previously in HLCF
-            //    inventory and must NOT appear in the Unassigned list.
-            const { data: unassignedData, error: unassignedError } = await supabase
+            //    Include OLCF6/HQ items if they appear in the masterlist but have no vessel assignment.
+
+            // First get HQ vessel ID
+            const { data: hqVessel } = await supabase
+                .from('vessels')
+                .select('id')
+                .eq('slug', 'hq-inventory')
+                .single()
+
+            let unassignedQuery = supabase
                 .from('items')
                 .select(`
                     id, 
@@ -77,7 +84,8 @@ export function RetiredItemsClient() {
                 `)
                 .eq('is_status', 'active')
                 .is('vessel_id', null)
-                .not('unique_code', 'ilike', '%-OLCF6-%')
+
+            const { data: unassignedData, error: unassignedError } = await unassignedQuery
                 .order('unique_code', { ascending: true })
 
             if (unassignedError) {

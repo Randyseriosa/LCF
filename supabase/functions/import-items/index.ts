@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
     // Fetch all vessels for bow matching
     const { data: vessels, error: vesselsError } = await supabaseAdmin
       .from('vessels')
-      .select('id, bow_number')
+      .select('id, bow_number, slug')
 
     if (vesselsError || !vessels) {
       return errorResponse('Failed to fetch vessels', 500)
@@ -225,6 +225,14 @@ Deno.serve(async (req: Request) => {
           if (regex.test(item.unique_code)) {
             itemVesselId = vesselMap[bow]
             break
+          }
+        }
+
+        // Special case: if unique code contains OLCF6, assign to HQ-OLCF6
+        if (!itemVesselId && item.unique_code.includes('OLCF6')) {
+          const hqVessel = vessels.find((v: any) => v.bow_number === 'HQ-OLCF6' || v.slug === 'hq-inventory')
+          if (hqVessel) {
+            itemVesselId = hqVessel.id
           }
         }
       }
