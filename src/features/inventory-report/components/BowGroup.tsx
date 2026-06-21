@@ -47,19 +47,6 @@ function getReportMonthYear(reportDate: string | null | undefined): { month: num
 export default function BowGroup({ bowNumber, className, items, hasReport, reportDate, basePath = '/encoder', isFirst = false, isLast = false }: BowGroupProps) {
   const [expanded, setExpanded] = useState(false)
 
-  const isUpToDate = useMemo(() => {
-    if (!hasReport || !reportDate) return false
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const parts = reportDate.split(' ')
-    if (parts.length !== 2) return false
-    const reportMonthIndex = months.indexOf(parts[0])
-    const reportYear = parseInt(parts[1])
-    return reportMonthIndex === currentMonth && reportYear === currentYear
-  }, [hasReport, reportDate])
-
   const groupedByCategory = items.reduce((acc, item) => {
     try {
       const equipmentType = item.items?.equipments?.equipment_type || null
@@ -106,14 +93,14 @@ export default function BowGroup({ bowNumber, className, items, hasReport, repor
 
           {/* Status badge */}
           <span className="text-xs flex-1 text-left">
-            {hasReport
-              ? isUpToDate
-                ? <span className="text-green-600 font-medium">● Up To Date</span>
-                : reportDate
-                  ? <span className="text-amber-600 font-medium">● {reportDate}</span>
-                  : <span className="text-amber-600 font-medium">● Updated</span>
-              : <span className="text-foreground-muted">● Masterlist only</span>
-            }
+            {hasReport ? (
+              <span className="font-bold uppercase flex items-center whitespace-nowrap">
+                <span className="text-green-600 mr-1">● UP TO DATE -</span>
+                <span className="text-orange-500">{reportDate || 'UPDATED'}</span>
+              </span>
+            ) : (
+              <span className="text-foreground-muted uppercase">● Masterlist only</span>
+            )}
           </span>
 
           {/* Item count */}

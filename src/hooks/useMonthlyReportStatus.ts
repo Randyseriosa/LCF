@@ -49,10 +49,10 @@ export function useMonthlyReportStatus({
         try {
             // Build the report month date (first day of the month)
             // Use UTC methods to avoid timezone issues
-            const reportDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
-            
+            const reportDateStr = `${year}-${String(month).padStart(2, '0')}-01`
+
             console.log('[useMonthlyReportStatus] Querying for vessel_id:', vesselId, 'report_month:', reportDateStr)
-            
+
             // Query monthly_reports for the specific vessel and month
             const { data, error } = await supabase
                 .from('monthly_reports')

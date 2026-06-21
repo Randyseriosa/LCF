@@ -37,7 +37,9 @@ export interface InventoryItem {
     }
   }
   monthly_reports: {
+    id?: string
     report_month: string | null
+    created_at?: string
     vessels: {
       bow_number: string | null
       class_of_vessel: {
@@ -178,7 +180,7 @@ export function useInventoryReport() {
       const [itemsRes, vesselsRes, classesRes, masterlistRes] = await Promise.all([
         supabase
           .from('monthly_report_items')
-          .select(`*, items(equipments(id, unique_code, name, equipment_type)), monthly_reports!report_id(report_month, vessels!vessel_id(bow_number, class_of_vessel(name)))`)
+          .select(`*, items(equipments(id, unique_code, name, equipment_type)), monthly_reports!report_id(id, report_month, created_at, vessels!vessel_id(bow_number, class_of_vessel(name)))`)
           .order('unique_code', { ascending: true }),
         supabase
           .from('vessels')
@@ -209,9 +211,37 @@ export function useInventoryReport() {
         console.error('[useInventoryReport] masterlist query error:', masterlistRes.error)
         throw masterlistRes.error
       }
-      setAllItems(itemsRes.data as InventoryItem[] || [])
-      setAllVessels(vesselsRes.data as VesselMaster[] || [])
       setAllClasses(classesRes.data || [])
+
+      const itemsData = itemsRes.data as InventoryItem[] || []
+
+      // Filter to keep only items from the latest report for each vessel
+      const latestReportByBow = new Map<string, { month: string; created_at: string; report_id: string }>()
+
+      itemsData.forEach(item => {
+        const bow = item.monthly_reports?.vessels?.bow_number
+        const month = item.monthly_reports?.report_month
+        const createdAt = item.monthly_reports?.created_at || ''
+        const reportId = item.report_id
+
+        if (bow && month) {
+          const current = latestReportByBow.get(bow)
+          if (!current || month > current.month || (month === current.month && createdAt > current.created_at)) {
+            latestReportByBow.set(bow, { month, created_at: createdAt, report_id: reportId })
+          }
+        }
+      })
+
+      const filteredItems = itemsData.filter(item => {
+        const bow = item.monthly_reports?.vessels?.bow_number
+        if (!bow) return true // Keep items without bow info (though shouldn't happen)
+        const latest = latestReportByBow.get(bow)
+        if (!latest) return true // No report info for this bow? Keep it.
+        return item.report_id === latest.report_id
+      })
+
+      setAllItems(filteredItems)
+      setAllVessels(vesselsRes.data as VesselMaster[] || [])
       const flattenedMasterlist = (masterlistRes.data || []).flatMap((assignment: any) => {
         if (!assignment.item_id) return []
         return [{ ...assignment.item_id, vessel_id: assignment.vessel_id }]

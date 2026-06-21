@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Upload, FileSpreadsheet, FileText, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { getAuthUser } from '@/lib/auth'
 import * as XLSX from 'xlsx'
@@ -171,6 +172,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
   const [isCheckingSync, setIsCheckingSync] = useState(false)
   const [vesselId, setVesselId] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false)
   const [successModalData, setSuccessModalData] = useState<{ title: string; message: string }>({ title: '', message: '' })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const renderCount = useRef(0)
@@ -734,7 +736,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
     }
   }
 
-  const handleImport = async () => {
+  const handleImport = async (skipConfirm = false) => {
     if (!file) return
 
     // Block import if there are internal duplicates
@@ -743,6 +745,13 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       return
     }
 
+    // Check if report already exists and we need confirmation
+    if (mode === 'monthly' && reportStatus.exists && !skipConfirm) {
+      setShowOverwriteConfirm(true)
+      return
+    }
+
+    setShowOverwriteConfirm(false)
     setIsImporting(true)
     setError(null)
 
@@ -956,7 +965,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                     </button>
                   ) : (
                     <button
-                      onClick={handleImport}
+                      onClick={() => handleImport()}
                       disabled={isImporting}
                       className="bg-primary text-background px-6 py-2.5 hover:bg-primary/90 disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
                     >
@@ -1009,7 +1018,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
 
           <div className="mt-4 flex justify-center gap-3">
             <button
-              onClick={handleImport}
+              onClick={() => handleImport()}
               disabled={isImporting || Boolean(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0)}
               className="bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
             >
@@ -1140,6 +1149,17 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
         onClose={() => setShowSuccessModal(false)}
         title={successModalData.title}
         message={successModalData.message}
+      />
+
+      {/* ── Overwrite Confirmation Modal ── */}
+      <ConfirmModal
+        isOpen={showOverwriteConfirm}
+        onClose={() => setShowOverwriteConfirm(false)}
+        onConfirm={() => handleImport(true)}
+        title="Confirm Overwrite"
+        message={`Overwrite previously imported file for ${fileInfo?.month_name} ${fileInfo?.year} of ${fileInfo?.bow_number}?`}
+        confirmText="Overwrite"
+        cancelText="Cancel"
       />
     </div>
   )
