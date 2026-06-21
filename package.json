@@ -7,10 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "restart": "npx supabase stop && npx supabase start",
     "function": "npx supabase functions serve",
-    "browser": "open-cli http://localhost:3000",
-    "start:all": "concurrently \"npm run dev\" \"npm run function\" \"npm run browser\""
+    "restart": "npx supabase stop && npx supabase start"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -30,12 +28,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "concurrently": "^10.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
-    "open-cli": "^9.0.0",
     "supabase": "^2.98.1",
     "tailwindcss": "^4",
     "ts-jest": "^29.4.9",

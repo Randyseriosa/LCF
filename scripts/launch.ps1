@@ -13,16 +13,21 @@ if (-not $dockerProcess) {
         Start-Process $dockerPath
         Write-Host "Waiting for Docker to initialize..." -ForegroundColor Cyan
         Start-Sleep -Seconds 10 # Give it some time to boot
-    } else {
+    }
+    else {
         Write-Host "Docker Desktop executable not found at standard path. Please start Docker manually." -ForegroundColor Red
     }
-} else {
+}
+else {
     Write-Host "Docker is already running." -ForegroundColor Green
 }
 
-# 1. Run npm run start:all in a new terminal window
-Write-Host "Starting development servers..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit -Command", "npm run start:all"
+# 1. Start development servers in separate windows
+Write-Host "Starting Next.js development server..." -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit -Command", "npm run dev"
+
+Write-Host "Starting Supabase functions..." -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit -Command", "npm run function"
 
 # 2. Wait for localhost:3000 to be available
 Write-Host "Waiting for OLCF6 to initialize..." -ForegroundColor Cyan
@@ -33,7 +38,8 @@ while ($true) {
             Write-Host "Server is ready!" -ForegroundColor Green
             break 
         }
-    } catch {
+    }
+    catch {
         # Port not ready yet
     }
     Start-Sleep -Seconds 2
@@ -47,10 +53,12 @@ $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
 if (Test-Path $edgePath) {
     Write-Host "Launching Site-Specific Browser (Edge)..." -ForegroundColor Green
     Start-Process $edgePath -ArgumentList "--app=http://localhost:3000"
-} elseif (Test-Path $chromePath) {
+}
+elseif (Test-Path $chromePath) {
     Write-Host "Launching Site-Specific Browser (Chrome)..." -ForegroundColor Green
     Start-Process $chromePath -ArgumentList "--app=http://localhost:3000"
-} else {
+}
+else {
     Write-Host "Launching in default browser (no SSB detected)..." -ForegroundColor Yellow
     Start-Process "http://localhost:3000"
 }
