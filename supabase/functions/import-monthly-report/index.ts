@@ -395,25 +395,14 @@ function filterItemsByEquipment(
 }
 
 /**
- * Get or create monthly report
+ * Create a new monthly report record
  */
-async function getOrCreateReport(
+async function createReport(
   supabaseAdmin: any,
   vesselId: string,
   reportMonth: string,
   userId: string
 ): Promise<{ reportId: string; error?: string }> {
-  const { data: existingReport, error: existingReportError } = await supabaseAdmin
-    .from('monthly_reports')
-    .select('id')
-    .eq('vessel_id', vesselId)
-    .eq('report_month', reportMonth)
-    .single()
-
-  if (existingReport) {
-    return { reportId: existingReport.id }
-  }
-
   const { data: newReport, error: createReportError } = await supabaseAdmin
     .from('monthly_reports')
     .insert({
@@ -425,7 +414,7 @@ async function getOrCreateReport(
     .single()
 
   if (createReportError || !newReport) {
-    return { reportId: '', error: 'Failed to create monthly report' }
+    return { reportId: '', error: 'Failed to create monthly report record' }
   }
 
   return { reportId: newReport.id }
@@ -756,12 +745,8 @@ Deno.serve(async (req: Request) => {
         return errorResponse(validationResult.error || 'Ammunition validation failed', 400)
       }
     }
-    const reportResult = await getOrCreateReport(supabaseAdmin, vessel.id, reportMonth, importerId)
-
-    if (reportResult.error) {
-      return errorResponse(reportResult.error, 500)
-    }
-
+    const reportResult = await createReport(supabaseAdmin, vessel.id, reportMonth, importerId)
+    if (reportResult.error) return errorResponse(reportResult.error, 500)
     const reportId = reportResult.reportId
 
     const { data: existingItems, error: existingItemsError } = await supabaseAdmin

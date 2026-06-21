@@ -213,30 +213,40 @@ export function useInventoryReport() {
       }
       setAllClasses(classesRes.data || [])
 
-      const itemsData = itemsRes.data as InventoryItem[] || []
+      const itemsData = itemsRes.data as any[] || []
 
       // Filter to keep only items from the latest report for each vessel
-      const latestReportByBow = new Map<string, { month: string; created_at: string; report_id: string }>()
+      const latestReportByBow = new Map<string, { time: number; created_at: string; report_id: string }>()
 
       itemsData.forEach(item => {
-        const bow = item.monthly_reports?.vessels?.bow_number
-        const month = item.monthly_reports?.report_month
-        const createdAt = item.monthly_reports?.created_at || ''
+        // Handle potential array or object from Supabase join
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        const vessel = report?.vessels
+        const bow = (vessel?.bow_number || '').trim().toUpperCase()
+        const monthStr = report?.report_month
+        const createdAt = report?.created_at || ''
         const reportId = item.report_id
 
-        if (bow && month) {
+        if (bow && monthStr && reportId) {
+          const time = new Date(monthStr).getTime()
           const current = latestReportByBow.get(bow)
-          if (!current || month > current.month || (month === current.month && createdAt > current.created_at)) {
-            latestReportByBow.set(bow, { month, created_at: createdAt, report_id: reportId })
+          if (!current || time > current.time || (time === current.time && createdAt > current.created_at)) {
+            latestReportByBow.set(bow, { time, created_at: createdAt, report_id: reportId })
           }
         }
       })
 
       const filteredItems = itemsData.filter(item => {
-        const bow = item.monthly_reports?.vessels?.bow_number
-        if (!bow) return true // Keep items without bow info (though shouldn't happen)
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        const vessel = report?.vessels
+        const bow = (vessel?.bow_number || '').trim().toUpperCase()
+
+        if (!bow) return true // Keep things without bow info
+
         const latest = latestReportByBow.get(bow)
-        if (!latest) return true // No report info for this bow? Keep it.
+        if (!latest) return true
+
+        // Only keep if it belongs to the latest report identified for this bow
         return item.report_id === latest.report_id
       })
 
@@ -272,12 +282,13 @@ export function useInventoryReport() {
   const allItemsUnified = useMemo((): InventoryItem[] => {
     const bowsWithAnyReport = new Set<string>()
     allItems.forEach(item => {
-      const bow = item.monthly_reports?.vessels?.bow_number
+      const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+      const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
       if (bow) bowsWithAnyReport.add(bow)
     })
     const masterlistOnlyItems: InventoryItem[] = []
     allVessels.forEach(vessel => {
-      const bow = vessel.bow_number ?? ''
+      const bow = (vessel.bow_number || '').trim().toUpperCase()
       if (!bow || bowsWithAnyReport.has(bow)) return
       const mlItems = masterlistItems.filter(m => (m as any).vessel_id === vessel.id)
       mlItems.forEach(item => {
@@ -307,8 +318,15 @@ export function useInventoryReport() {
   const items = useMemo(() => {
     let result = allItemsUnified
     if (filters.keyword) result = result.filter(item => matchesKeyword(item, filters.keyword))
-    if (classFilter.length > 0) result = result.filter(item => classFilter.includes(item.monthly_reports?.vessels?.class_of_vessel?.name ?? ''))
-    if (bowFilter.length > 0) result = result.filter(item => bowFilter.includes(item.monthly_reports?.vessels?.bow_number ?? ''))
+    if (classFilter.length > 0) result = result.filter(item => {
+      const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+      return classFilter.includes(report?.vessels?.class_of_vessel?.name ?? '')
+    })
+    if (bowFilter.length > 0) result = result.filter(item => {
+      const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+      const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
+      return bowFilter.some(b => b.trim().toUpperCase() === bow)
+    })
     if (equipmentCategoryFilter) {
       result = result.filter(item => {
         const equipmentType = item.items?.equipments?.equipment_type || null
@@ -325,12 +343,13 @@ export function useInventoryReport() {
     const itemsByBow = new Map<string, InventoryItem[]>()
     const reportDateByBow = new Map<string, string | null>()
     items.forEach(item => {
-      const bow = item.monthly_reports?.vessels?.bow_number
+      const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+      const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
       if (!bow) return
       if (!itemsByBow.has(bow)) itemsByBow.set(bow, [])
       itemsByBow.get(bow)!.push(item)
       if (!reportDateByBow.has(bow)) {
-        const reportDate = item.monthly_reports?.report_month
+        const reportDate = report?.report_month
         if (reportDate) {
           const d = new Date(reportDate)
           if (!isNaN(d.getTime())) {
@@ -342,7 +361,8 @@ export function useInventoryReport() {
     })
     const bowsWithAnyReport = new Set<string>()
     allItems.forEach(item => {
-      const bow = item.monthly_reports?.vessels?.bow_number
+      const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+      const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
       if (bow) bowsWithAnyReport.add(bow)
     })
     const hasItemFilters = filters.keyword !== '' || FILTER_FIELDS.some(f => filters[f].length > 0) || !!equipmentCategoryFilter
@@ -358,7 +378,8 @@ export function useInventoryReport() {
         const hasReport = bowsWithAnyReport.has(bow)
         // For vessels with a report: use filtered report items from unified list
         // For vessels without a report: use unified list items (which already includes filtered masterlist data)
-        const vesselItems = itemsByBow.get(bow) ?? []
+        const normalizedBow = bow.trim().toUpperCase()
+        const vesselItems = itemsByBow.get(normalizedBow) ?? []
         if (hasItemFilters && vesselItems.length === 0) return null
         return {
           bowNumber: bow,
@@ -380,16 +401,19 @@ export function useInventoryReport() {
 
     // Apply class filter
     if (classFilter.length > 0) {
-      contextItems = contextItems.filter(item =>
-        classFilter.includes(item.monthly_reports?.vessels?.class_of_vessel?.name ?? '')
-      )
+      contextItems = contextItems.filter(item => {
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        return classFilter.includes(report?.vessels?.class_of_vessel?.name ?? '')
+      })
     }
 
     // Apply bow filter
     if (bowFilter.length > 0) {
-      contextItems = contextItems.filter(item =>
-        bowFilter.includes(item.monthly_reports?.vessels?.bow_number ?? '')
-      )
+      contextItems = contextItems.filter(item => {
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
+        return bowFilter.some(b => b.trim().toUpperCase() === bow)
+      })
     }
 
     // Apply equipment category filter
