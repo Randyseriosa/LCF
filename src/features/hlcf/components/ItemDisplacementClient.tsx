@@ -27,7 +27,7 @@ export function ItemDisplacementClient() {
                         : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                         }`}
                 >
-                    Item Displacement
+                    Transfer Items
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}

@@ -10,6 +10,7 @@ interface BowGroupProps {
   className: string
   items: InventoryItem[]
   hasReport: boolean
+  hasMasterlist: boolean
   reportDate?: string | null
   basePath?: string
   isFirst?: boolean
@@ -44,7 +45,7 @@ function getReportMonthYear(reportDate: string | null | undefined): { month: num
   }
 }
 
-export default function BowGroup({ bowNumber, className, items, hasReport, reportDate, basePath = '/encoder', isFirst = false, isLast = false }: BowGroupProps) {
+export default function BowGroup({ bowNumber, className, items, hasReport, hasMasterlist, reportDate, basePath = '/encoder', isFirst = false, isLast = false }: BowGroupProps) {
   const [expanded, setExpanded] = useState(false)
 
   const groupedByCategory = items.reduce((acc, item) => {
@@ -93,13 +94,27 @@ export default function BowGroup({ bowNumber, className, items, hasReport, repor
 
           {/* Status badge */}
           <span className="text-xs flex-1 text-left">
-            {hasReport ? (
-              <span className="font-bold uppercase flex items-center whitespace-nowrap">
-                <span className="text-green-600 mr-1">● UP TO DATE -</span>
-                <span className="text-orange-500">{reportDate || 'UPDATED'}</span>
-              </span>
+            {hasReport ? (() => {
+              const reportMY = getReportMonthYear(reportDate);
+              const now = new Date();
+              const isCurrentMonth = reportMY && reportMY.month === now.getMonth() && reportMY.year === now.getFullYear();
+
+              if (isCurrentMonth) {
+                return (
+                  <span className="font-bold uppercase flex items-center whitespace-nowrap text-green-600">
+                    ● UP TO DATE
+                  </span>
+                );
+              }
+              return (
+                <span className="font-bold uppercase flex items-center whitespace-nowrap text-orange-500">
+                  ● {reportDate || 'UPDATED'}
+                </span>
+              );
+            })() : hasMasterlist ? (
+              <span className="text-foreground-muted uppercase">● Masterlist</span>
             ) : (
-              <span className="text-foreground-muted uppercase">● Masterlist only</span>
+              <span className="text-foreground-muted uppercase">● No Masterlist imported yet</span>
             )}
           </span>
 

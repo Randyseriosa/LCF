@@ -95,6 +95,7 @@ export interface BowGroupData {
   className: string
   items: InventoryItem[]
   hasReport: boolean
+  hasMasterlist: boolean
   reportDate: string | null
 }
 
@@ -114,6 +115,8 @@ export interface InventoryFilters {
   par: string[]
   status: string[]
 }
+
+export type DataSource = 'latest' | 'masterlist' | 'monthly'
 
 const EMPTY_FILTERS: InventoryFilters = {
   keyword: '',
@@ -162,6 +165,7 @@ function applyFieldFilters(list: InventoryItem[], filters: InventoryFilters, exc
 
 export function useInventoryReport() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([])
+  const [rawItems, setRawItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<InventoryFilters>(EMPTY_FILTERS)
@@ -171,6 +175,13 @@ export function useInventoryReport() {
   const [allVessels, setAllVessels] = useState<VesselMaster[]>([])
   const [allClasses, setAllClasses] = useState<{ id: string; name: string }[]>([])
   const [masterlistItems, setMasterlistItems] = useState<MasterlistItem[]>([])
+
+  const [dataSource, setDataSource] = useState<DataSource>('latest')
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date()
+    return (d.getMonth() + 1).toString().padStart(2, '0')
+  })
+  const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
 
   const fetchItems = async () => {
     setLoading(true)
@@ -251,6 +262,7 @@ export function useInventoryReport() {
       })
 
       setAllItems(filteredItems)
+      setRawItems(itemsData)
       setAllVessels(vesselsRes.data as VesselMaster[] || [])
       const flattenedMasterlist = (masterlistRes.data || []).flatMap((assignment: any) => {
         if (!assignment.item_id) return []
@@ -277,9 +289,43 @@ export function useInventoryReport() {
       .sort()
   }, [allVessels, classFilter])
 
-  // Unified list: monthly-report items + masterlist items for vessels that have NO report yet.
-  // This ensures filter suggestions cover ALL data in the system, not just reported items.
+  // Unified list: monthly-report items + masterlist items
   const allItemsUnified = useMemo((): InventoryItem[] => {
+    if (dataSource === 'masterlist') {
+      return allVessels.flatMap(vessel => {
+        const bow = (vessel.bow_number || '').trim().toUpperCase()
+        if (!bow) return []
+        const mlItems = masterlistItems.filter(m => (m as any).vessel_id === vessel.id)
+        return mlItems.map(item => ({
+          ...item,
+          previous_report: null,
+          expended: null,
+          replenished: null,
+          balance_on_hand: null,
+          report_id: '',
+          status: '-',
+          monthly_reports: {
+            report_month: null,
+            vessels: {
+              bow_number: bow,
+              class_of_vessel: Array.isArray(vessel.class_of_vessel)
+                ? vessel.class_of_vessel[0] ?? null
+                : vessel.class_of_vessel,
+            },
+          },
+        } as InventoryItem))
+      })
+    }
+
+    if (dataSource === 'monthly') {
+      const targetPeriod = `${selectedYear}-${selectedMonth}-01`
+      return rawItems.filter(item => {
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        return report?.report_month === targetPeriod
+      })
+    }
+
+    // Default: 'latest' (up to date report)
     const bowsWithAnyReport = new Set<string>()
     allItems.forEach(item => {
       const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
@@ -313,7 +359,7 @@ export function useInventoryReport() {
       })
     })
     return [...allItems, ...masterlistOnlyItems]
-  }, [allItems, allVessels, masterlistItems])
+  }, [allItems, allVessels, masterlistItems, dataSource, selectedMonth, selectedYear])
 
   const items = useMemo(() => {
     let result = allItemsUnified
@@ -367,31 +413,52 @@ export function useInventoryReport() {
     })
     const hasItemFilters = filters.keyword !== '' || FILTER_FIELDS.some(f => filters[f].length > 0) || !!equipmentCategoryFilter
     const filteredVessels = allVessels.filter(v => {
+      const bow = v.bow_number ?? ''
       if (classFilter.length > 0 && !classFilter.includes(getVesselClassName(v))) return false
-      if (bowFilter.length > 0 && !bowFilter.includes(v.bow_number ?? '')) return false
+      if (bowFilter.length > 0 && !bowFilter.includes(bow)) return false
+
+      // If in monthly mode, only show vessels that HAVE a report for that month
+      if (dataSource === 'monthly') {
+        const targetPeriod = `${selectedYear}-${selectedMonth}-01`
+        const hasMonthlyReport = rawItems.some(item => {
+          const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+          const reportBow = (report?.vessels?.bow_number || '').trim().toUpperCase()
+          return reportBow === bow.trim().toUpperCase() && report?.report_month === targetPeriod
+        })
+        if (!hasMonthlyReport) return false
+      }
+
       return true
     })
     return filteredVessels
       .map(v => {
         const bow = v.bow_number ?? 'Unknown'
         const cls = getVesselClassName(v)
-        const hasReport = bowsWithAnyReport.has(bow)
+        const isMasterlistMode = dataSource === 'masterlist'
+        const hasReport = isMasterlistMode ? false : bowsWithAnyReport.has(bow)
         // For vessels with a report: use filtered report items from unified list
         // For vessels without a report: use unified list items (which already includes filtered masterlist data)
         const normalizedBow = bow.trim().toUpperCase()
         const vesselItems = itemsByBow.get(normalizedBow) ?? []
         if (hasItemFilters && vesselItems.length === 0) return null
+
+        const hasMasterlist = masterlistItems.some(ml => (ml as any).vessel_id === v.id)
+
+        let reportDate = reportDateByBow.get(bow) ?? null
+        if (isMasterlistMode) reportDate = null
+
         return {
           bowNumber: bow,
           className: cls,
           items: vesselItems,
           hasReport,
-          reportDate: reportDateByBow.get(bow) ?? null,
+          hasMasterlist,
+          reportDate: reportDate,
         }
       })
       .filter((g): g is BowGroupData => g !== null)
       .sort((a, b) => a.bowNumber.localeCompare(b.bowNumber))
-  }, [allVessels, allItems, items, masterlistItems, filters, classFilter, bowFilter, equipmentCategoryFilter])
+  }, [allVessels, allItems, items, masterlistItems, filters, classFilter, bowFilter, equipmentCategoryFilter, dataSource, selectedMonth, selectedYear])
 
   // Suggestions are narrowed by ALL currently active filters (class, bow, equipment category,
   // and the other field-level filters) so the dropdown only shows contextually valid options.
@@ -518,5 +585,11 @@ export function useInventoryReport() {
     availableClasses,
     availableBows,
     bowGroups,
+    dataSource,
+    setDataSource,
+    selectedMonth,
+    setSelectedMonth,
+    selectedYear,
+    setSelectedYear,
   }
 }

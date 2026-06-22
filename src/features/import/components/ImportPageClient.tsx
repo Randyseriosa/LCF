@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Upload, FileSpreadsheet, FileText, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { createClient } from '@/lib/supabase/client'
 import { getAuthUser } from '@/lib/auth'
 import * as XLSX from 'xlsx'
@@ -174,6 +175,8 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false)
   const [successModalData, setSuccessModalData] = useState<{ title: string; message: string }>({ title: '', message: '' })
+  const [isGlobalLoading, setIsGlobalLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const renderCount = useRef(0)
 
@@ -207,6 +210,18 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       return recentImports.slice(0, 5)
     }
   }, [recentImports])
+
+  // Helper to wrap actions with a tactical loading screen
+  const withLoading = async (message: string, action: () => Promise<void> | void) => {
+    setIsGlobalLoading(true)
+    setLoadingMessage(message)
+    try {
+      await action()
+    } finally {
+      setIsGlobalLoading(false)
+      setLoadingMessage('')
+    }
+  }
 
   // Check if monthly report already exists for this vessel/month
   const { status: reportStatus, loading: checkingReportStatus } = useMonthlyReportStatus({
@@ -333,6 +348,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       if (vesselError || !vessel) {
         setVesselId(null)
         setSyncCheckResults({ sync: [], notOnMasterlist: items, mismatched: [], internalDuplicates: [], missedItems: [], vesselId: null })
+        setError(`Vessel "${bowNumber}" not found.`)
         return
       }
 
@@ -665,42 +681,67 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      const validTypes = mode === 'monthly'
-        ? ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel']
-        : ['application/pdf']
+      await withLoading('Reading file data...', async () => {
+        const validTypes = mode === 'monthly'
+          ? ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel']
+          : ['application/pdf']
 
-      if (!validTypes.includes(selectedFile.type)) {
-        setError(mode === 'monthly' ? 'Please upload a valid Excel file (.xlsx or .xls)' : 'Please upload a valid PDF file (.pdf)')
-        return
-      }
-
-      // Parse filename to extract BOW, month, and year
-      const parsedInfo = parseFilename(selectedFile.name)
-      if (!parsedInfo) {
-        setError('Invalid filename format.')
-        return
-      }
-
-      // Check if report month is in the future (only for monthly mode)
-      if (mode === 'monthly') {
-        const now = new Date()
-        const currentYear = now.getFullYear()
-        const currentMonth = now.getMonth() + 1
-
-        if (parsedInfo.year > currentYear || (parsedInfo.year === currentYear && parsedInfo.month > currentMonth)) {
-          setError(`Cannot import report in advance. Selected month (${parsedInfo.month_name} ${parsedInfo.year}) is in the future.`)
+        if (!validTypes.includes(selectedFile.type)) {
+          setError(mode === 'monthly' ? 'Please upload a valid Excel file (.xlsx or .xls)' : 'Please upload a valid PDF file (.pdf)')
           return
         }
-      }
 
-      setFile(selectedFile)
-      setFileInfo(parsedInfo)
-      setError(null)
-      setSuccess(false)
-      setShowPreview(false)
+        // Parse filename to extract BOW, month, and year
+        const parsedInfo = parseFilename(selectedFile.name)
+        if (!parsedInfo) {
+          setError('Invalid filename format.')
+          return
+        }
+
+        // Check if report month is in the future (only for monthly mode)
+        if (mode === 'monthly') {
+          const now = new Date()
+          const currentYear = now.getFullYear()
+          const currentMonth = now.getMonth() + 1
+
+          if (parsedInfo.year > currentYear || (parsedInfo.year === currentYear && parsedInfo.month > currentMonth)) {
+            setError(`Cannot import report in advance. Selected month (${parsedInfo.month_name} ${parsedInfo.year}) is in the future.`)
+            return
+          }
+        }
+
+        setFile(selectedFile)
+        setFileInfo(parsedInfo)
+        setError(null)
+        setSuccess(false)
+        setShowPreview(false)
+
+        // Proactively resolve vesselId from BOW number to check report status early
+        if (parsedInfo) {
+          try {
+            const supabase = createClient()
+            const { data: vessel } = await supabase
+              .from('vessels')
+              .select('id')
+              .eq('bow_number', parsedInfo.bow_number)
+              .single()
+
+            if (vessel) {
+              setVesselId(vessel.id)
+            } else {
+              setVesselId(null)
+            }
+          } catch (err) {
+            console.error('Error resolving vesselId:', err)
+            setVesselId(null)
+          }
+        } else {
+          setVesselId(null)
+        }
+      })
     }
   }
 
@@ -719,45 +760,47 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       }
     }
 
-    setIsProcessing(true)
-    setError(null)
+    await withLoading('Processing and translating file...', async () => {
+      setIsProcessing(true)
+      setError(null)
 
-    try {
-      const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data, { type: 'array' })
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
+      try {
+        const data = await file.arrayBuffer()
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
 
-      if (jsonData.length < 2) {
-        setError('The file appears to be empty or has no data rows')
+        if (jsonData.length < 2) {
+          setError('The file appears to be empty or has no data rows')
+          setIsProcessing(false)
+          return
+        }
+
+        // Parse multi-section Excel file
+        const items = parseMultiSectionExcel(jsonData)
+
+        if (items.length === 0) {
+          setError('No valid data rows found in the file')
+          setIsProcessing(false)
+          return
+        }
+
+        setPreviewData(items)
+        setShowPreview(true)
+        setSuccess(true)
+
+        // Perform sync check after file processing
+        if (fileInfo) {
+          await performSyncCheck(items, fileInfo.bow_number, fileInfo.month, fileInfo.year)
+        }
+      } catch (err) {
+        setError('Failed to process the file. Please ensure it is a valid Excel file.')
+        console.error('File processing error:', err)
+      } finally {
         setIsProcessing(false)
-        return
       }
-
-      // Parse multi-section Excel file
-      const items = parseMultiSectionExcel(jsonData)
-
-      if (items.length === 0) {
-        setError('No valid data rows found in the file')
-        setIsProcessing(false)
-        return
-      }
-
-      setPreviewData(items)
-      setShowPreview(true)
-      setSuccess(true)
-
-      // Perform sync check after file processing
-      if (fileInfo) {
-        await performSyncCheck(items, fileInfo.bow_number, fileInfo.month, fileInfo.year)
-      }
-    } catch (err) {
-      setError('Failed to process the file. Please ensure it is a valid Excel file.')
-      console.error('File processing error:', err)
-    } finally {
-      setIsProcessing(false)
-    }
+    })
   }
 
   const handleImport = async (skipConfirm = false) => {
@@ -788,76 +831,87 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
     }
 
     setShowOverwriteConfirm(false)
-    setIsImporting(true)
-    setError(null)
 
-    try {
-      const supabase = createClient()
-      const user = await getAuthUser()
-      if (!user) throw new Error('Not authenticated')
+    let importSuccessful = false
+    let vesselName = ''
+    let reportMonth = ''
 
-      const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-      const token = match ? decodeURIComponent(match[1]) : null
-      if (!token) throw new Error('Not authenticated')
+    await withLoading(mode === 'monthly' ? 'Synchronizing with Masterlist...' : 'Uploading report...', async () => {
+      setIsImporting(true)
+      setError(null)
 
-      // Convert file to base64 using chunked approach to avoid call stack overflow on large files
-      const fileBuffer = await file.arrayBuffer()
-      const uint8Array = new Uint8Array(fileBuffer)
-      let binary = ''
-      const chunkSize = 8192
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        binary += String.fromCharCode(...uint8Array.subarray(i, i + chunkSize))
-      }
-      const base64 = btoa(binary)
-      const fileData = `data:${file.type};base64,${base64}`
+      try {
+        const supabase = createClient()
+        const user = await getAuthUser()
+        if (!user) throw new Error('Not authenticated')
 
-      // Call edge function to import report
-      const functionName = mode === 'monthly' ? 'import-monthly-report' : 'import-derangement-report'
-      const { data, error: functionError } = await supabase.functions.invoke(functionName, {
-        body: {
-          file_data: fileData,
-          filename: file.name
-        },
-        headers: {
-          'Authorization': `Bearer ${token}`
+        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
+        const token = match ? decodeURIComponent(match[1]) : null
+        if (!token) throw new Error('Not authenticated')
+
+        // Convert file to base64 using chunked approach to avoid call stack overflow on large files
+        const fileBuffer = await file.arrayBuffer()
+        const uint8Array = new Uint8Array(fileBuffer)
+        let binary = ''
+        const chunkSize = 8192
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          binary += String.fromCharCode(...uint8Array.subarray(i, i + chunkSize))
         }
-      })
+        const base64 = btoa(binary)
+        const fileData = `data:${file.type};base64,${base64}`
 
-      if (functionError) {
-        throw new Error(functionError.message || 'Failed to import report')
+        // Call edge function to import report
+        const functionName = mode === 'monthly' ? 'import-monthly-report' : 'import-derangement-report'
+        const { data, error: functionError } = await supabase.functions.invoke(functionName, {
+          body: {
+            file_data: fileData,
+            filename: file.name
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (functionError) {
+          throw new Error(functionError.message || 'Failed to import report')
+        }
+
+        if (data?.error) {
+          throw new Error(data.error)
+        }
+
+        // Capture file info before clearing state for the notification
+        vesselName = fileInfo?.bow_number || 'Unknown Vessel'
+        reportMonth = fileInfo ? `${fileInfo.month_name} ${fileInfo.year}` : ''
+
+        setSuccess(true)
+        setFile(null)
+        setPreviewData([])
+        setFileInfo(null)
+        setShowPreview(false)
+        setSyncCheckResults(null)
+        setVesselId(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+        refreshRecentImports()
+        importSuccessful = true
+      } catch (err: any) {
+        setError(err.message || 'Failed to import report')
+      } finally {
+        setIsImporting(false)
       }
+    })
 
-      if (data?.error) {
-        throw new Error(data.error)
-      }
-
-      // Capture file info before clearing state for the notification
-      const importedVessel = fileInfo?.bow_number || 'Unknown Vessel'
-      const importedMonth = fileInfo ? `${fileInfo.month_name} ${fileInfo.year}` : ''
-
-      setSuccess(true)
-      setFile(null)
-      setPreviewData([])
-      setFileInfo(null)
-      setShowPreview(false)
-      setSyncCheckResults(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      refreshRecentImports()
-
-      // Show success modal
+    // Show success modal only after loading is complete
+    if (importSuccessful) {
       setSuccessModalData({
         title: 'Import Successful',
         message: mode === 'monthly'
-          ? `Monthly report for ${importedVessel} — ${importedMonth} imported successfully.`
-          : `Derangement report for ${importedVessel} — ${importedMonth} uploaded successfully.`
+          ? `Monthly report for ${vesselName} — ${reportMonth} imported successfully.`
+          : `Derangement report for ${vesselName} — ${reportMonth} uploaded successfully.`
       })
       setShowSuccessModal(true)
-    } catch (err: any) {
-      setError(err.message || 'Failed to import report')
-    } finally {
-      setIsImporting(false)
     }
   }
 
@@ -1197,6 +1251,8 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
         confirmText="Overwrite"
         cancelText="Cancel"
       />
+
+      <LoadingOverlay isOpen={isGlobalLoading} message={loadingMessage} />
     </div>
   )
 }

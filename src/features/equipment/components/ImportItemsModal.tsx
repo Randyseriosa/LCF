@@ -208,6 +208,32 @@ export function ImportItemsModal({
         setError(null)
 
         try {
+            // Validate vessel existence if bow_number or slug is present (Masterlist or Monthly Report)
+            if (parsedFileInfo?.bow_number || parsedFileInfo?.slug) {
+                const supabase = createClient()
+                let query = supabase.from('vessels').select('id')
+
+                if (parsedFileInfo.bow_number) {
+                    query = query.eq('bow_number', parsedFileInfo.bow_number.toUpperCase())
+                } else if (parsedFileInfo.slug) {
+                    query = query.eq('slug', parsedFileInfo.slug.toLowerCase())
+                }
+
+                const { data: vessel, error: vesselError } = await query.maybeSingle()
+
+                if (vesselError) {
+                    console.error('Vessel verification error:', vesselError)
+                    throw new Error('Error verifying vessel registration: ' + vesselError.message)
+                }
+
+                if (!vessel) {
+                    const identifier = parsedFileInfo.bow_number || parsedFileInfo.slug
+                    setError(`Vessel "${identifier}" not found.`)
+                    setIsProcessing(false)
+                    return
+                }
+            }
+
             console.log('Starting file processing...')
             const data = await file.arrayBuffer()
             console.log('File buffer size:', data.byteLength)
@@ -253,7 +279,7 @@ export function ImportItemsModal({
                         else if (headerName.includes('serial') || headerName === 'serial_number' || headerName === 'serialno') columnMap.serial_number = index
                         else if (headerName.includes('part') || headerName === 'part_number' || headerName === 'partno') columnMap.part_number = index
                         else if (headerName.includes('date manufactured') || headerName === 'date_manufactured' || headerName === 'manufactured date') columnMap.date_manufactured = index
-                        else if (headerName.includes('date installed') || headerName.includes('date issued') || headerName.includes('date acquired') || headerName === 'date_installed_issued' || headerName.includes('installed/issued')) columnMap.date_installed_issued = index
+                        else if (headerName.includes('date installed') || headerName.includes('date issued') || headerName === 'date_installed_issued' || headerName.includes('installed/issued')) columnMap.date_installed_issued = index
                         else if (headerName === 'ics' || headerName.includes('inventory custodian')) columnMap.ics = index
                         else if (headerName === 'par' || headerName.includes('property acknowledgement')) columnMap.par = index
                         else if (headerName === 'quantity' || headerName === 'qty' || headerName === 'count' || headerName === 'qty.' || headerName === 'balance on hand' || headerName === 'balance') columnMap.quantity = index

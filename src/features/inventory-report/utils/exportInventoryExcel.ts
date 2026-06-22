@@ -184,7 +184,7 @@ export function exportInventoryToExcel(bowGroups: BowGroupData[]): void {
         // Vessel header
         sheetData.push([`Vessel: ${group.bowNumber}`])
         sheetData.push([`Class: ${group.className}`])
-        sheetData.push([`Report Status: ${hasReport ? (group.reportDate || 'Updated') : 'Masterlist Only'}`])
+        sheetData.push([`Report Status: ${hasReport ? (group.reportDate || 'Updated') : group.hasMasterlist ? 'Masterlist' : 'No Masterlist imported yet'}`])
         sheetData.push([`Total Items: ${group.items.length}`])
         sheetData.push([]) // spacer row
 

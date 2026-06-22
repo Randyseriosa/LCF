@@ -9,6 +9,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { getAccessToken } from '@/lib/auth'
 import { useRecentMonthlyAttachmentImports } from '@/hooks/useRecentMonthlyAttachmentImports'
 import { Clock, ExternalLink } from 'lucide-react'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 
 interface FileQueueItem {
     file: File
@@ -26,9 +27,23 @@ export function ImportMonthlyAttachmentClient() {
     const [showSuccessModal, setShowSuccessModal] = useState(false)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [reportToDelete, setReportToDelete] = useState<{ id: string, filename: string } | null>(null)
+    const [isGlobalLoading, setIsGlobalLoading] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const { imports: recentImports, loading: loadingHistory, refresh: refreshHistory } = useRecentMonthlyAttachmentImports(5)
+
+    // Helper to wrap actions with a tactical loading screen
+    const withLoading = async (message: string, action: () => Promise<void> | void) => {
+        setIsGlobalLoading(true)
+        setLoadingMessage(message)
+        try {
+            await action()
+        } finally {
+            setIsGlobalLoading(false)
+            setLoadingMessage('')
+        }
+    }
 
     const parseFilename = (filename: string): { bowNumber: string, month: string, year: string } | null => {
         const regex = /^([^-]+)-(\d{6})-attachment\.pdf$/i
@@ -44,31 +59,66 @@ export function ImportMonthlyAttachmentClient() {
         }
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || [])
-        const newItems: FileQueueItem[] = files.map(file => {
-            const parsed = parseFilename(file.name)
-            if (!parsed) {
-                return {
-                    file,
-                    bowNumber: 'INVALID',
-                    month: '',
-                    year: '',
-                    status: 'error',
-                    error: 'Filename must be Bow-MMYYYY-attachment.pdf'
-                } as FileQueueItem
-            }
-            return {
-                file,
-                bowNumber: parsed.bowNumber,
-                month: parsed.month,
-                year: parsed.year,
-                status: 'pending'
-            }
-        })
+        if (files.length === 0) return
 
-        setQueue(prev => [...prev, ...newItems])
-        if (fileInputRef.current) fileInputRef.current.value = ''
+        await withLoading('Scanning and preparing attachments...', async () => {
+            const supabase = createClient()
+
+            const newItems: FileQueueItem[] = await Promise.all(
+                files.map(async file => {
+                    const parsed = parseFilename(file.name)
+                    if (!parsed) {
+                        return {
+                            file,
+                            bowNumber: 'INVALID',
+                            month: '',
+                            year: '',
+                            status: 'error',
+                            error: 'Filename must be Bow-MMYYYY-attachment.pdf'
+                        } as FileQueueItem
+                    }
+
+                    // Check if vessel exists
+                    const { data: vessel } = await supabase
+                        .from('vessels')
+                        .select('id')
+                        .eq('bow_number', parsed.bowNumber)
+                        .maybeSingle()
+
+                    if (!vessel && parsed.bowNumber !== 'HQ-INVENTORY') {
+                        const { data: vesselBySlug } = await supabase
+                            .from('vessels')
+                            .select('id')
+                            .eq('slug', parsed.bowNumber.toLowerCase())
+                            .maybeSingle()
+
+                        if (!vesselBySlug) {
+                            return {
+                                file,
+                                bowNumber: parsed.bowNumber,
+                                month: parsed.month,
+                                year: parsed.year,
+                                status: 'error',
+                                error: `Vessel "${parsed.bowNumber}" not found.`
+                            } as FileQueueItem
+                        }
+                    }
+
+                    return {
+                        file,
+                        bowNumber: parsed.bowNumber,
+                        month: parsed.month,
+                        year: parsed.year,
+                        status: 'pending'
+                    } as FileQueueItem
+                })
+            )
+
+            setQueue(prev => [...prev, ...newItems])
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        })
     }
 
     const removeItem = (index: number) => {
@@ -79,84 +129,87 @@ export function ImportMonthlyAttachmentClient() {
         const pendingItems = queue.filter(item => item.status === 'pending')
         if (pendingItems.length === 0) return
 
-        setIsSubmitting(true)
-        const supabase = createClient()
+        let importSuccessful = false
+        await withLoading('Processing batch upload to deep deck...', async () => {
+            setIsSubmitting(true)
+            const supabase = createClient()
 
-        const token = getAccessToken()
-        if (!token) {
-            setIsSubmitting(false)
-            alert('Session expired. Please log in again.')
-            return
-        }
-
-        for (let i = 0; i < queue.length; i++) {
-            const item = queue[i]
-            if (item.status !== 'pending') continue
-
-            // Update status to uploading
-            setQueue(prev => {
-                const next = [...prev]
-                next[i] = { ...next[i], status: 'uploading' }
-                return next
-            })
-
-            try {
-                // Convert file to base64
-                const fileBuffer = await item.file.arrayBuffer()
-                const uint8Array = new Uint8Array(fileBuffer)
-                let binary = ''
-                const chunkSize = 8192
-                for (let j = 0; j < uint8Array.length; j += chunkSize) {
-                    binary += String.fromCharCode(...uint8Array.subarray(j, j + chunkSize))
-                }
-                const base64 = btoa(binary)
-                const fileData = `data:application/pdf;base64,${base64}`
-
-                const { data, error } = await supabase.functions.invoke('import-monthly-report-attachment', {
-                    body: {
-                        file_data: fileData,
-                        filename: item.file.name
-                    },
-                    headers: {
-                        'X-Authorization': `Bearer ${token}`
-                    }
-                })
-
-                if (error || data?.error) {
-                    throw new Error(error?.message || data?.error || 'Unknown error')
-                }
-
-                setQueue(prev => {
-                    const next = [...prev]
-                    next[i] = { ...next[i], status: 'success' }
-                    return next
-                })
-            } catch (err: any) {
-                setQueue(prev => {
-                    const next = [...prev]
-                    next[i] = { ...next[i], status: 'error', error: err.message }
-                    return next
-                })
+            const token = getAccessToken()
+            if (!token) {
+                setIsSubmitting(false)
+                alert('Session expired. Please log in again.')
+                return
             }
-        }
 
-        setIsSubmitting(false)
+            let successfulResults = 0
+            for (let i = 0; i < queue.length; i++) {
+                const item = queue[i]
+                if (item.status !== 'pending') continue
 
-        const successCount = queue.filter(item => item.status === 'success').length
-        if (successCount > 0) {
+                // Update status to uploading
+                setQueue(prev => {
+                    const next = [...prev]
+                    next[i] = { ...next[i], status: 'uploading' }
+                    return next
+                })
+
+                try {
+                    // Convert file to base64
+                    const fileBuffer = await item.file.arrayBuffer()
+                    const uint8Array = new Uint8Array(fileBuffer)
+                    let binary = ''
+                    const chunkSize = 8192
+                    for (let j = 0; j < uint8Array.length; j += chunkSize) {
+                        binary += String.fromCharCode(...uint8Array.subarray(j, j + chunkSize))
+                    }
+                    const base64 = btoa(binary)
+                    const fileData = `data:application/pdf;base64,${base64}`
+
+                    const { data, error } = await supabase.functions.invoke('import-monthly-report-attachment', {
+                        body: {
+                            file_data: fileData,
+                            filename: item.file.name
+                        },
+                        headers: {
+                            'X-Authorization': `Bearer ${token}`
+                        }
+                    })
+
+                    if (error || data?.error) {
+                        throw new Error(error?.message || data?.error || 'Unknown error')
+                    }
+
+                    successfulResults++
+                    setQueue(prev => {
+                        const next = [...prev]
+                        next[i] = { ...next[i], status: 'success' }
+                        return next
+                    })
+                } catch (err: any) {
+                    setQueue(prev => {
+                        const next = [...prev]
+                        next[i] = { ...next[i], status: 'error', error: err.message }
+                        return next
+                    })
+                }
+            }
+
+            setIsSubmitting(false)
+            importSuccessful = successfulResults > 0
+        })
+
+        // Show success modal and refresh only after loading is complete
+        if (importSuccessful) {
             setShowSuccessModal(true)
             // Force a slight delay to ensure DB indexing is complete before refresh
             setTimeout(() => {
                 refreshHistory()
+                // Automatically clear the entire queue to return to empty state
+                setQueue([]);
+                // Full page reload to ensure absolute synchronization of all data status
+                window.location.reload();
             }, 1000)
         }
-
-        // Automatically clear the entire queue to return to empty state
-        setQueue([]);
-
-        // Full page reload to ensure absolute synchronization of all data status
-        // Since we now use URL-based tab state, this will preserve the current view
-        window.location.reload();
     }
 
     const handleDeleteRecent = async (id: string, filename: string) => {
@@ -404,6 +457,8 @@ export function ImportMonthlyAttachmentClient() {
                     </div>
                 )}
             </div>
+
+            <LoadingOverlay isOpen={isGlobalLoading} message={loadingMessage} />
         </div>
     )
 }

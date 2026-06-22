@@ -25,6 +25,9 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
     classFilter, bowFilter, toggleClassFilter, toggleBowFilter,
     equipmentCategoryFilter, setEquipmentCategoryFilter,
     availableClasses, availableBows, bowGroups,
+    dataSource, setDataSource,
+    selectedMonth, setSelectedMonth,
+    selectedYear, setSelectedYear,
   } = useInventoryReport()
   const [showFilters, setShowFilters] = useState(false)
 
@@ -58,41 +61,98 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
       {/* Unified Card: Search + Filter + Table */}
       <div className="bg-surface shadow-card border border-foreground/10 overflow-hidden">
 
-        {/* ── Search Toolbar ── */}
+        {/* ── Unified Tactical Toolbar ── */}
         <div className="p-3 space-y-3">
-          {/* Search Bar and Filter Toggle */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted" />
-              <input
-                type="text"
-                placeholder="Search items — keyword, unique code, classification, nomenclature, brand, model, ICS, PAR…"
-                value={filters.keyword}
-                onChange={(e) => updateKeyword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-foreground/10 bg-background text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all text-sm"
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-foreground/5 hover:bg-foreground/10 text-foreground transition-all shrink-0"
-            >
-              <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="ml-1 px-2 py-0.5 bg-primary text-white text-xs font-semibold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2.5 text-error hover:bg-error-bg transition-all text-sm shrink-0"
+          <div className="flex flex-wrap items-end gap-3 pb-3 border-b border-foreground/10">
+            {/* Data Source Selection */}
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Data Source</span>
+              <select
+                value={dataSource}
+                onChange={(e) => setDataSource(e.target.value as any)}
+                className="px-3 py-1.5 border border-primary/20 bg-background text-[11px] font-black uppercase tracking-wider text-primary focus:outline-none focus:ring-1 focus:ring-primary h-[33px] min-w-[150px]"
+                style={{ borderRadius: '0px' }}
               >
-                <X className="w-3.5 h-3.5" />
-                Clear all
-              </button>
+                <option value="latest">UP TO DATE</option>
+                <option value="masterlist">MASTERLIST</option>
+                <option value="monthly">MONTHLY PERIOD</option>
+              </select>
+            </div>
+
+            {/* Report Period (Conditional) */}
+            {dataSource === 'monthly' && (
+              <div className="flex flex-col gap-1.5 shrink-0 animate-in fade-in slide-in-from-left-2 duration-300">
+                <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Report Period</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="px-3 py-1.5 border border-primary/20 bg-background text-[11px] font-black uppercase tracking-wider text-primary focus:outline-none focus:ring-1 focus:ring-primary h-[33px]"
+                    style={{ borderRadius: '0px' }}
+                  >
+                    {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => (
+                      <option key={m} value={m}>
+                        {new Date(2000, parseInt(m) - 1).toLocaleString('default', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="px-3 py-1.5 border border-primary/20 bg-background text-[11px] font-black uppercase tracking-wider text-primary focus:outline-none focus:ring-1 focus:ring-primary h-[33px]"
+                    style={{ borderRadius: '0px' }}
+                  >
+                    {Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - 5 + i).toString()).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             )}
+
+            {/* Search Bar */}
+            <div className="flex-1 flex flex-col gap-1.5 min-w-[200px]">
+              <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Search Items</span>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/60" />
+                <input
+                  type="text"
+                  placeholder="SEARCH KEYWORD, CODE, NOMENCLATURE, BRAND, MODEL, ICS, PAR..."
+                  value={filters.keyword}
+                  onChange={(e) => updateKeyword(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 border border-primary/20 bg-background text-[11px] uppercase placeholder:text-primary/30 text-primary focus:outline-none focus:ring-1 focus:ring-primary h-[33px]"
+                  style={{ borderRadius: '0px' }}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 h-[33px]">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 h-full transition-all shrink-0 text-[11px] font-black uppercase tracking-wider border ${showFilters ? 'bg-primary text-white border-primary' : 'bg-primary/5 text-primary border-primary/20 hover:bg-primary/10'}`}
+                style={{ borderRadius: '0px' }}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-primary text-white text-[9px] font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1.5 px-3 h-full text-error hover:bg-error/5 transition-all text-[11px] font-black uppercase tracking-wider border border-error/20"
+                  style={{ borderRadius: '0px' }}
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Clear All</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Active filter chips */}
@@ -225,6 +285,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
                   className={group.className}
                   items={group.items}
                   hasReport={group.hasReport}
+                  hasMasterlist={group.hasMasterlist}
                   reportDate={group.reportDate}
                   basePath={role ? `/${role}` : ''}
                   isFirst={idx === 0}

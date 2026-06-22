@@ -167,7 +167,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                             : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                             }`}
                     >
-                        HQ Inventory
+                        Monthly Inventory View
                     </button>
                     <button
                         onClick={() => setActiveTab('masterlist')}
@@ -185,7 +185,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                             : 'text-foreground-muted hover:text-foreground hover:bg-foreground/5'
                             }`}
                     >
-                        Reports
+                        Summary of Reports
                     </button>
                 </div>
 
