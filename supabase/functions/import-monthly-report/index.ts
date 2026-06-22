@@ -611,6 +611,15 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Invalid filename format. Expected format: PC370-052026.xlsx', 400)
     }
 
+    // Check if report month is in the future
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1 // getMonth() is 0-indexed
+
+    if (fileInfo.year > currentYear || (fileInfo.year === currentYear && fileInfo.month > currentMonth)) {
+      return errorResponse(`Cannot import report in advance. Selected month (${fileInfo.month_name} ${fileInfo.year}) is in the future.`, 400)
+    }
+
     const bytes = decodeBase64File(file_data)
 
     const jsonData = parseExcelFile(bytes)

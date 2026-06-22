@@ -684,6 +684,18 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
         return
       }
 
+      // Check if report month is in the future (only for monthly mode)
+      if (mode === 'monthly') {
+        const now = new Date()
+        const currentYear = now.getFullYear()
+        const currentMonth = now.getMonth() + 1
+
+        if (parsedInfo.year > currentYear || (parsedInfo.year === currentYear && parsedInfo.month > currentMonth)) {
+          setError(`Cannot import report in advance. Selected month (${parsedInfo.month_name} ${parsedInfo.year}) is in the future.`)
+          return
+        }
+      }
+
       setFile(selectedFile)
       setFileInfo(parsedInfo)
       setError(null)
@@ -693,7 +705,19 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
   }
 
   const handleProcessFile = async () => {
-    if (!file) return
+    if (!file || !fileInfo) return
+
+    // Re-verify future month check before processing
+    if (mode === 'monthly') {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth() + 1
+
+      if (fileInfo.year > currentYear || (fileInfo.year === currentYear && fileInfo.month > currentMonth)) {
+        setError(`Cannot import report in advance. Selected month (${fileInfo.month_name} ${fileInfo.year}) is in the future.`)
+        return
+      }
+    }
 
     setIsProcessing(true)
     setError(null)
@@ -743,6 +767,18 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
     if (syncCheckResults?.internalDuplicates && syncCheckResults.internalDuplicates.length > 0) {
       setError('Cannot import: Duplicate unique codes detected in the file. Please resolve them before importing.')
       return
+    }
+
+    // Check if report month is in the future (only for monthly mode)
+    if (mode === 'monthly' && fileInfo) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth() + 1
+
+      if (fileInfo.year > currentYear || (fileInfo.year === currentYear && fileInfo.month > currentMonth)) {
+        setError(`Cannot import report in advance. Selected month (${fileInfo.month_name} ${fileInfo.year}) is in the future.`)
+        return
+      }
     }
 
     // Check if report already exists and we need confirmation
