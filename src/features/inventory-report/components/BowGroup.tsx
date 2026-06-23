@@ -15,6 +15,8 @@ interface BowGroupProps {
   basePath?: string
   isFirst?: boolean
   isLast?: boolean
+  targetMonth?: string // "01" - "12"
+  targetYear?: string
 }
 
 function formatDate(date: string | null): string {
@@ -36,17 +38,33 @@ function getReportMonthYear(reportDate: string | null | undefined): { month: num
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const parts = reportDate.split(' ')
     if (parts.length !== 2) return null
-    const monthIndex = months.indexOf(parts[0])
+    const monthIndex = months.indexOf(parts[0]) // 0-11
     const year = parseInt(parts[1])
     if (monthIndex === -1 || isNaN(year)) return null
-    return { month: monthIndex, year }
+    return { month: monthIndex + 1, year } // 1-12
   } catch {
     return null
   }
 }
 
-export default function BowGroup({ bowNumber, className, items, hasReport, hasMasterlist, reportDate, basePath = '/encoder', isFirst = false, isLast = false }: BowGroupProps) {
+export default function BowGroup({
+  bowNumber,
+  className,
+  items,
+  hasReport,
+  hasMasterlist,
+  reportDate,
+  basePath = '/encoder',
+  isFirst = false,
+  isLast = false,
+  targetMonth,
+  targetYear
+}: BowGroupProps) {
   const [expanded, setExpanded] = useState(false)
+
+  // Determine target month/year for status logic
+  const effectiveTargetMonth = targetMonth ? parseInt(targetMonth) : new Date().getMonth() + 1
+  const effectiveTargetYear = targetYear ? parseInt(targetYear) : new Date().getFullYear()
 
   const groupedByCategory = items.reduce((acc, item) => {
     try {
@@ -96,19 +114,34 @@ export default function BowGroup({ bowNumber, className, items, hasReport, hasMa
           <span className="text-xs flex-1 text-left">
             {hasReport ? (() => {
               const reportMY = getReportMonthYear(reportDate);
-              const now = new Date();
-              const isCurrentMonth = reportMY && reportMY.month === now.getMonth() && reportMY.year === now.getFullYear();
+              if (!reportMY) return null;
 
-              if (isCurrentMonth) {
+              const isMatch = reportMY.month === effectiveTargetMonth && reportMY.year === effectiveTargetYear;
+              const now = new Date();
+              const isActuallyCurrentMonth = reportMY.month === (now.getMonth() + 1) && reportMY.year === now.getFullYear();
+
+              if (isMatch) {
+                const monthName = new Date(2000, effectiveTargetMonth - 1).toLocaleString('default', { month: 'long' });
+
+                if (isActuallyCurrentMonth) {
+                  return (
+                    <span className="font-bold uppercase flex items-center whitespace-nowrap text-green-600">
+                      ● Up to Date - {monthName}
+                    </span>
+                  );
+                }
+
                 return (
                   <span className="font-bold uppercase flex items-center whitespace-nowrap text-green-600">
-                    ● UP TO DATE
+                    ● {reportDate}
                   </span>
                 );
               }
+
+              // Orange for previous or non-matching report
               return (
                 <span className="font-bold uppercase flex items-center whitespace-nowrap text-orange-500">
-                  ● {reportDate || 'UPDATED'}
+                  ● {reportDate}
                 </span>
               );
             })() : hasMasterlist ? (

@@ -150,12 +150,7 @@ function getRowValues(
     return row
 }
 
-/**
- * Exports the currently filtered bowGroups data to an Excel (.xlsx) file.
- * Each vessel is placed in a separate worksheet.
- * Items within each vessel are grouped by equipment category with sub-headers.
- */
-export function exportInventoryToExcel(bowGroups: BowGroupData[]): void {
+export function exportInventoryToExcel(bowGroups: BowGroupData[], filename?: string, isMonthly?: boolean): void {
     if (bowGroups.length === 0) return
 
     const wb = XLSX.utils.book_new()
@@ -184,7 +179,7 @@ export function exportInventoryToExcel(bowGroups: BowGroupData[]): void {
         // Vessel header
         sheetData.push([`Vessel: ${group.bowNumber}`])
         sheetData.push([`Class: ${group.className}`])
-        sheetData.push([`Report Status: ${hasReport ? (group.reportDate || 'Updated') : group.hasMasterlist ? 'Masterlist' : 'No Masterlist imported yet'}`])
+        sheetData.push([`${isMonthly ? 'Period' : 'Report Status'}: ${hasReport ? (group.reportDate || 'Updated') : group.hasMasterlist ? 'Masterlist' : 'No Masterlist imported yet'}`])
         sheetData.push([`Total Items: ${group.items.length}`])
         sheetData.push([]) // spacer row
 
@@ -227,9 +222,11 @@ export function exportInventoryToExcel(bowGroups: BowGroupData[]): void {
         XLSX.utils.book_append_sheet(wb, ws, sheetName)
     })
 
-    // Generate filename with current date
-    const dateStr = new Date().toISOString().split('T')[0]
-    const filename = `Global_Inventory_Report_${dateStr}.xlsx`
+    // Generate default filename with current date if not provided
+    if (!filename) {
+        const dateStr = new Date().toISOString().split('T')[0]
+        filename = `Global_Inventory_Report_${dateStr}.xlsx`
+    }
 
     XLSX.writeFile(wb, filename)
 }

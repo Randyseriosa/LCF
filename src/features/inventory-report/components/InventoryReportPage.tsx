@@ -35,7 +35,22 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
 
   const handleExport = () => {
     if (bowGroups.length === 0) return
-    exportInventoryToExcel(bowGroups)
+
+    let filename = 'Global_Inventory_Report.xlsx'
+
+    if (dataSource === 'masterlist') {
+      filename = 'Global_Inventory_Report_masterlist.xlsx'
+    } else if (dataSource === 'latest') {
+      const now = new Date()
+      const month = now.toLocaleString('default', { month: 'long' })
+      const year = now.getFullYear()
+      filename = `Global_Inventory_Report_${month}_${year}.xlsx`
+    } else if (dataSource === 'monthly') {
+      const monthName = new Date(2000, parseInt(selectedMonth) - 1).toLocaleString('default', { month: 'long' })
+      filename = `Global_Inventory_Report_Report Period_${monthName}_${selectedYear}.xlsx`
+    }
+
+    exportInventoryToExcel(bowGroups, filename, dataSource !== 'masterlist')
   }
 
 
@@ -274,7 +289,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
                 <span className="w-4 shrink-0" />
                 <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Vessel</span>
                 <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Class</span>
-                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">Report Status</span>
+                <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-left">{dataSource === 'masterlist' ? 'Report Status' : 'Period'}</span>
                 <span className="text-xs font-bold text-foreground-muted uppercase tracking-wider flex-1 text-right">Items</span>
               </div>
 
@@ -290,6 +305,8 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
                   basePath={role ? `/${role}` : ''}
                   isFirst={idx === 0}
                   isLast={idx === bowGroups.length - 1}
+                  targetMonth={dataSource === 'monthly' ? selectedMonth : undefined}
+                  targetYear={dataSource === 'monthly' ? selectedYear : undefined}
                 />
               ))}
 

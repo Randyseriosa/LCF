@@ -318,11 +318,68 @@ export function useInventoryReport() {
     }
 
     if (dataSource === 'monthly') {
-      const targetPeriod = `${selectedYear}-${selectedMonth}-01`
-      return rawItems.filter(item => {
+      const targetTime = new Date(`${selectedYear}-${selectedMonth}-01`).getTime()
+
+      // Find the latest report for each bow that is <= targetTime
+      const latestReportByBow = new Map<string, { time: number; created_at: string; report_id: string }>()
+      const bowsWithAnyReportBeforeTarget = new Set<string>()
+
+      rawItems.forEach(item => {
         const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
-        return report?.report_month === targetPeriod
+        const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
+        const monthStr = report?.report_month
+        const createdAt = report?.created_at || ''
+        const reportId = item.report_id
+
+        if (bow && monthStr && reportId) {
+          const reportTime = new Date(monthStr).getTime()
+          if (reportTime <= targetTime) {
+            bowsWithAnyReportBeforeTarget.add(bow)
+            const current = latestReportByBow.get(bow)
+            if (!current || reportTime > current.time || (reportTime === current.time && createdAt > current.created_at)) {
+              latestReportByBow.set(bow, { time: reportTime, created_at: createdAt, report_id: reportId })
+            }
+          }
+        }
       })
+
+      const monthlyItems = rawItems.filter(item => {
+        const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
+        const bow = (report?.vessels?.bow_number || '').trim().toUpperCase()
+        if (!bow) return false
+        const latest = latestReportByBow.get(bow)
+        return latest && item.report_id === latest.report_id
+      })
+
+      // Add masterlist items for vessels that have no reports at or before targetTime
+      const masterlistFallbackItems: InventoryItem[] = []
+      allVessels.forEach(vessel => {
+        const bow = (vessel.bow_number || '').trim().toUpperCase()
+        if (!bow || bowsWithAnyReportBeforeTarget.has(bow)) return
+        const mlItems = masterlistItems.filter(m => (m as any).vessel_id === vessel.id)
+        mlItems.forEach(item => {
+          masterlistFallbackItems.push({
+            ...item,
+            previous_report: null,
+            expended: null,
+            replenished: null,
+            balance_on_hand: null,
+            report_id: '',
+            status: '-',
+            monthly_reports: {
+              report_month: null, // No report date
+              vessels: {
+                bow_number: (vessel.bow_number || '').trim().toUpperCase(),
+                class_of_vessel: Array.isArray(vessel.class_of_vessel)
+                  ? vessel.class_of_vessel[0] ?? null
+                  : vessel.class_of_vessel,
+              },
+            },
+          } as InventoryItem)
+        })
+      })
+
+      return [...monthlyItems, ...masterlistFallbackItems]
     }
 
     // Default: 'latest' (up to date report)
@@ -417,15 +474,16 @@ export function useInventoryReport() {
       if (classFilter.length > 0 && !classFilter.includes(getVesselClassName(v))) return false
       if (bowFilter.length > 0 && !bowFilter.includes(bow)) return false
 
-      // If in monthly mode, only show vessels that HAVE a report for that month
+      // If in monthly mode, only show vessels that HAVE a report at or before target month
       if (dataSource === 'monthly') {
-        const targetPeriod = `${selectedYear}-${selectedMonth}-01`
-        const hasMonthlyReport = rawItems.some(item => {
+        const targetTime = new Date(`${selectedYear}-${selectedMonth}-01`).getTime()
+        const hasReportAtOrBefore = rawItems.some(item => {
           const report = Array.isArray(item.monthly_reports) ? item.monthly_reports[0] : item.monthly_reports
           const reportBow = (report?.vessels?.bow_number || '').trim().toUpperCase()
-          return reportBow === bow.trim().toUpperCase() && report?.report_month === targetPeriod
+          const reportTime = report?.report_month ? new Date(report.report_month).getTime() : 0
+          return reportBow === bow.trim().toUpperCase() && reportTime <= targetTime
         })
-        if (!hasMonthlyReport) return false
+        if (!hasReportAtOrBefore) return false
       }
 
       return true
