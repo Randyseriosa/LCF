@@ -29,7 +29,7 @@ interface OverviewClientProps {
 }
 
 const MANAGEMENT_TABS = [
-    { label: 'HLCF INVENTORY MANAGEMENT', href: (base: string) => `${base}/hlcf`, icon: Package },
+    { label: 'OLCF6 INVENTORY MANAGEMENT', href: (base: string) => `${base}/hlcf`, icon: Package },
     { label: 'Vessel Management', href: (base: string) => `${base}/vessels`, icon: Ship },
     { label: 'Equipment Management', href: (base: string) => `${base}/equipments`, icon: Wrench },
 ] as const
@@ -45,13 +45,13 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
     }, [])
 
     return (
-        <div className="flex flex-col flex-1 space-y-[30px]">
+        <div className="flex flex-col flex-1 min-h-0 space-y-[30px]">
             {/* ── Default: Bento Grid Layout ── */}
             {activeSection === SECTION.home && (
-                <div className="flex flex-col flex-1 space-y-0">
+                <div className="flex flex-col flex-1 min-h-0 space-y-0 overflow-hidden">
                     <PageHeader
                         title="Overview"
-                        description="Manage HLCF Inventory, Vessels, and Equipment"
+                        description="Manage OLCF6 Inventory, Vessels, and Equipment"
                         subtitle="Equipment Management and Monitoring System"
                         Icon={Shield}
                         bannerImage="/images/banners/banner-general-button.webp"
@@ -77,7 +77,7 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
                         }
                     />
 
-                    <div className="relative w-full flex-1 overflow-hidden border border-gray-200 bg-gray-50">
+                    <div className="relative w-full flex-1 min-h-0 border border-gray-200 bg-gray-50 overflow-hidden">
                         <img
                             src="/images/main/welcome.webp"
                             alt="Welcome"

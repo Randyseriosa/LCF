@@ -24,9 +24,9 @@ export default async function OverviewLayout({
     const role: Role = isRole(user.role) ? user.role : ROLES.viewer
 
     return (
-        <div className="flex min-h-screen bg-white">
+        <div className="flex h-screen overflow-hidden bg-white">
             <Sidebar role={role} />
-            <main className="flex flex-col flex-1 overflow-auto bg-white p-[30px] md:ml-64">
+            <main className="flex flex-col flex-1 overflow-hidden bg-white p-[30px] md:ml-64">
                 {children}
             </main>
         </div>

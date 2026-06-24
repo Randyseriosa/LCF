@@ -1,8 +1,8 @@
 import { HLCFPageClient } from '@/features/hlcf/components/HLCFPageClient'
 
 export const metadata = {
-  title: 'HLCF | Viewer',
-  description: 'View HLCF Inventory',
+  title: 'OLCF6 | Viewer',
+  description: 'View OLCF6 Inventory',
 }
 
 export default function HLCFPage() {

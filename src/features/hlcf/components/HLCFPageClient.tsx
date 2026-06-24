@@ -150,8 +150,8 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
     return (
         <div className="flex flex-col">
             <PageHeader
-                title="HLCF Inventory"
-                description="Manage HLCF Inventory, Vessels, and Equipment"
+                title="OLCF6 Inventory"
+                description="Manage OLCF6 Inventory, Vessels, and Equipment"
                 onBack={() => router.push(basePath)}
                 Icon={Package}
                 bannerImage="/images/banners/banner-general.webp"
