@@ -4,6 +4,7 @@
 -- Client reads use anon key with custom JWT, which Supabase doesn't recognize
 
 DROP POLICY IF EXISTS "Authenticated users can view equipments" ON public.equipments;
+DROP POLICY IF EXISTS "Public read access to equipments" ON public.equipments;
 
 CREATE POLICY "Public read access to equipments"
     ON public.equipments FOR SELECT

@@ -20,7 +20,7 @@ export default function RetiredItemsPage() {
                 bannerImage="/images/banners/banner-general.webp"
             />
 
-            <RetiredItemsClient />
+            <RetiredItemsClient role="viewer" />
         </div>
     )
 }

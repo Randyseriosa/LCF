@@ -14,6 +14,7 @@ CREATE TABLE public.item_transfer_logs (
 -- RLS
 ALTER TABLE public.item_transfer_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read item_transfer_logs" ON public.item_transfer_logs;
 CREATE POLICY "Allow public read item_transfer_logs" ON public.item_transfer_logs
     FOR SELECT
     USING (true);

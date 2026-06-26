@@ -19,7 +19,11 @@ interface Item {
     }
 }
 
-export function RetiredItemsClient() {
+interface RetiredItemsClientProps {
+    role?: 'admin' | 'encoder' | 'viewer'
+}
+
+export function RetiredItemsClient({ role }: RetiredItemsClientProps) {
     const [activeTab, setActiveTab] = useState<'retired' | 'unassigned'>('retired')
     const [retiredItems, setRetiredItems] = useState<Item[]>([])
     const [unassignedItems, setUnassignedItems] = useState<Item[]>([])
@@ -126,6 +130,7 @@ export function RetiredItemsClient() {
     }
 
     const toggleMenu = (id: string, e: React.MouseEvent) => {
+        if (role === 'viewer') return
         e.stopPropagation()
         if (openMenuId === id) {
             setOpenMenuId(null)
@@ -230,17 +235,19 @@ export function RetiredItemsClient() {
                     Unserviceable items
                     {activeTab === 'retired' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
                 </button>
-                <button
-                    onClick={() => setActiveTab('unassigned')}
-                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
-                        ? 'text-primary bg-primary/5'
-                        : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
-                        }`}
-                >
-                    <LayoutList className="w-4 h-4" />
-                    Unassigned Items
-                    {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
-                </button>
+                {role !== 'viewer' && (
+                    <button
+                        onClick={() => setActiveTab('unassigned')}
+                        className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
+                            ? 'text-primary bg-primary/5'
+                            : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
+                            }`}
+                    >
+                        <LayoutList className="w-4 h-4" />
+                        Unassigned Items
+                        {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
+                    </button>
+                )}
             </div>
 
             {/* Content */}
@@ -324,7 +331,7 @@ export function RetiredItemsClient() {
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {unassignedItems.find(i => i.id === openMenuId) && (
+                    {role !== 'viewer' && unassignedItems.find(i => i.id === openMenuId) && (
                         <button
                             onClick={() => {
                                 setItemToRetire(unassignedItems.find(i => i.id === openMenuId) || null)
