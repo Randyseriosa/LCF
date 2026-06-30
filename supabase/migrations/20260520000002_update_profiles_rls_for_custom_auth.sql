@@ -9,7 +9,6 @@ DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 -- Allow authenticated users to read all profiles
 -- Allow authenticated/anon users to read all profiles for custom JWT auth
 DROP POLICY IF EXISTS "Authenticated users can read profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Public read access to profiles" ON public.profiles;
 CREATE POLICY "Public read access to profiles"
 ON public.profiles FOR SELECT
 TO anon, authenticated

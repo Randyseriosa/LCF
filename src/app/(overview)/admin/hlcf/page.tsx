@@ -6,5 +6,5 @@ export const metadata = {
 }
 
 export default function HLCFPage() {
-  return <HLCFPageClient basePath="/admin" role="admin" />
+  return <HLCFPageClient basePath="/admin" />
 }

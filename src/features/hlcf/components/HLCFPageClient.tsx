@@ -15,7 +15,7 @@ import { Package } from 'lucide-react'
 type HLCFTab = 'hq' | 'masterlist' | 'reports'
 const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports']
 
-export function HLCFPageClient({ basePath, role }: { basePath: string; role?: string }) {
+export function HLCFPageClient({ basePath }: { basePath: string }) {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -209,7 +209,7 @@ export function HLCFPageClient({ basePath, role }: { basePath: string; role?: st
                                 </div>
 
                                 <div className="flex gap-2">
-                                    {role !== 'viewer' && reportExists && (
+                                    {reportExists && (
                                         <button
                                             onClick={handleClearReport}
                                             disabled={isClearingReport}
@@ -218,14 +218,12 @@ export function HLCFPageClient({ basePath, role }: { basePath: string; role?: st
                                             {isClearingReport ? 'Clearing...' : 'Clear Report'}
                                         </button>
                                     )}
-                                    {role !== 'viewer' && (
-                                        <button
-                                            onClick={() => setIsImportModalOpen(true)}
-                                            className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
-                                        >
-                                            {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
+                                    >
+                                        {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
+                                    </button>
                                 </div>
                             </div>
                             <div className="mt-4">

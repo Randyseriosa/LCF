@@ -3,7 +3,6 @@
 
 -- Table: monthly_report_attachments
 DROP POLICY IF EXISTS "Authenticated users can view attachments" ON public.monthly_report_attachments;
-DROP POLICY IF EXISTS "Public read access to monthly_report_attachments" ON public.monthly_report_attachments;
 CREATE POLICY "Public read access to monthly_report_attachments"
     ON public.monthly_report_attachments FOR SELECT
     TO anon, authenticated
