@@ -154,8 +154,6 @@ export async function updateSession(request: NextRequest) {
             if (role === ROLES.viewer) {
                 const path = request.nextUrl.pathname
                 const disallowedViewerPaths = [
-                    '/viewer/item-displacement',
-                    '/viewer/unserviceable-items',
                     '/viewer/vessels',
                     '/viewer/equipments'
                 ]

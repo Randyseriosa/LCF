@@ -68,7 +68,9 @@ export function Sidebar({ role }: { role: Role }) {
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
-                { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 }
+                { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
+                { name: 'Item Displacement', href: `/${role}/item-displacement`, icon: ArrowLeftRight },
+                { name: 'Item Management', href: `/${role}/unserviceable-items`, icon: Archive }
             )
             break
     }
