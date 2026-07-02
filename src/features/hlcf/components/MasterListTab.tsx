@@ -6,6 +6,7 @@ import { ImportItemsModal, type ParsedFileInfo } from '@/features/equipment/comp
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { Inbox, Plus } from 'lucide-react'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
+import { ROLES, type Role } from '@/lib/types/roles'
 
 interface Item {
     id: string
@@ -27,7 +28,7 @@ interface Item {
     }
 }
 
-export function MasterListTab() {
+export function MasterListTab({ role }: { role?: Role }) {
     const [items, setItems] = useState<Item[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -113,21 +114,23 @@ export function MasterListTab() {
         <div className="flex flex-col space-y-4">
             <div className="flex justify-between items-center bg-surface border border-foreground/10 p-4">
                 <h2 className="text-[18px] font-semibold text-foreground uppercase tracking-widest">HQ Inventory Masterlist</h2>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleClearAll}
-                        disabled={isClearing || items.length === 0}
-                        className="bg-error/10 hover:bg-error/20 text-error px-6 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/20 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isClearing ? 'Clearing...' : 'Clear All'}
-                    </button>
-                    <button
-                        onClick={() => setIsImportModalOpen(true)}
-                        className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors flex items-center gap-2"
-                    >
-                        <Plus className="w-4 h-4" /> Import Masterlist
-                    </button>
-                </div>
+                {role !== ROLES.viewer && (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleClearAll}
+                            disabled={isClearing || items.length === 0}
+                            className="bg-error/10 hover:bg-error/20 text-error px-6 py-2.5 text-xs font-bold uppercase tracking-widest border border-error/20 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isClearing ? 'Clearing...' : 'Clear All'}
+                        </button>
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors flex items-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" /> Import Masterlist
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="bg-surface border border-foreground/10 overflow-hidden shadow-card p-4">
@@ -142,7 +145,9 @@ export function MasterListTab() {
                         </div>
                         <h3 className="text-[18px] font-semibold text-foreground mb-2 uppercase tracking-widest">No Items Found</h3>
                         <p className="text-sm text-foreground-muted max-w-xs mb-6">
-                            There are currently no HQ Inventory items. Import masterlist to get started.
+                            {role === ROLES.viewer
+                                ? 'There are currently no HQ Inventory items.'
+                                : 'There are currently no HQ Inventory items. Import masterlist to get started.'}
                         </p>
                     </div>
                 ) : (

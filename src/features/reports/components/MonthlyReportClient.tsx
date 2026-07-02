@@ -120,7 +120,7 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
                     {mainTab === 'monthly' && (
                         <>
                             {activeMonthlyTab === 'status' && (
-                                <BowReportsClient basePath={basePath} />
+                                <BowReportsClient basePath={basePath} showImport={showImport} />
                             )}
                             {activeMonthlyTab === 'attachments' && (
                                 <MonthlyReportAttachmentsClient />

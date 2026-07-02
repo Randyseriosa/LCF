@@ -1,4 +1,5 @@
 import { ItemDisplacementClient } from '@/features/hlcf/components/ItemDisplacementClient'
+import { ROLES } from '@/lib/types/roles'
 
 export const metadata = {
     title: 'Item Displacement | Encoder',
@@ -6,5 +7,5 @@ export const metadata = {
 }
 
 export default function ItemDisplacementPage() {
-    return <ItemDisplacementClient />
+    return <ItemDisplacementClient role={ROLES.encoder} />
 }

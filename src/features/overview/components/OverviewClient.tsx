@@ -56,7 +56,12 @@ export function OverviewClient({ role, basePath }: OverviewClientProps) {
                         Icon={Shield}
                         bannerImage="/images/banners/banner-general-button.webp"
                         actions={
-                            MANAGEMENT_TABS.map((tab) => {
+                            MANAGEMENT_TABS.filter((tab) => {
+                                if (role === 'viewer') {
+                                    return tab.label === 'OLCF6 INVENTORY MANAGEMENT'
+                                }
+                                return true
+                            }).map((tab) => {
                                 const href = tab.href(basePath)
                                 const isActive = pathname === href || pathname.startsWith(href + '/')
                                 const Icon = tab.icon

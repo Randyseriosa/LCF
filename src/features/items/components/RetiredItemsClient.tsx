@@ -6,6 +6,7 @@ import { MoreVertical, Archive, LayoutList, CheckCircle2, Loader2, AlertTriangle
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { getAccessToken } from '@/lib/auth'
+import { ROLES, type Role } from '@/lib/types/roles'
 
 interface Item {
     id: string
@@ -19,7 +20,7 @@ interface Item {
     }
 }
 
-export function RetiredItemsClient() {
+export function RetiredItemsClient({ role }: { role?: Role }) {
     const [activeTab, setActiveTab] = useState<'retired' | 'unassigned'>('retired')
     const [retiredItems, setRetiredItems] = useState<Item[]>([])
     const [unassignedItems, setUnassignedItems] = useState<Item[]>([])
@@ -230,17 +231,19 @@ export function RetiredItemsClient() {
                     Unserviceable items
                     {activeTab === 'retired' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
                 </button>
-                <button
-                    onClick={() => setActiveTab('unassigned')}
-                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
-                        ? 'text-primary bg-primary/5'
-                        : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
-                        }`}
-                >
-                    <LayoutList className="w-4 h-4" />
-                    Unassigned Items
-                    {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
-                </button>
+                {role !== ROLES.viewer && (
+                    <button
+                        onClick={() => setActiveTab('unassigned')}
+                        className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
+                            ? 'text-primary bg-primary/5'
+                            : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
+                            }`}
+                    >
+                        <LayoutList className="w-4 h-4" />
+                        Unassigned Items
+                        {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
+                    </button>
+                )}
             </div>
 
             {/* Content */}
@@ -260,7 +263,7 @@ export function RetiredItemsClient() {
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Classification</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Nomenclature</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Bow Number</th>
-                                    {activeTab === 'unassigned' && (
+                                    {activeTab === 'unassigned' && role !== ROLES.viewer && (
                                         <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em] text-center">Actions</th>
                                     )}
                                 </tr>
@@ -295,7 +298,7 @@ export function RetiredItemsClient() {
                                                     {getDisplayBow(item)}
                                                 </span>
                                             </td>
-                                            {activeTab === 'unassigned' && (
+                                            {activeTab === 'unassigned' && role !== ROLES.viewer && (
                                                 <td className="px-6 py-4 text-center">
                                                     <button
                                                         onClick={(e) => toggleMenu(item.id, e)}
@@ -315,7 +318,7 @@ export function RetiredItemsClient() {
             </div>
 
             {/* Floating Actions Menu */}
-            {openMenuId && menuPosition && (
+            {openMenuId && menuPosition && role !== ROLES.viewer && (
                 <div
                     className="fixed z-[9999] bg-surface border border-primary/20 shadow-xl overflow-hidden min-w-[200px]"
                     style={{

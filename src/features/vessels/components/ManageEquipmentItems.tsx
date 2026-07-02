@@ -245,7 +245,7 @@ export function ManageEquipmentItems({ vesselId, equipmentId, equipmentName, onB
                         {unassignedItems.length === 0 ? (
                             <div className="text-center py-4 text-foreground/40 text-sm">No unassigned items</div>
                         ) : (
-                            <div className="border border-foreground/10">
+                            <div className="border border-foreground/10 overflow-x-auto">
                                 <table className="w-full relative">
                                     <thead className="sticky top-0 bg-surface z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                                         <tr className="border-b border-foreground/10 bg-foreground/5">
@@ -339,7 +339,7 @@ export function ManageEquipmentItems({ vesselId, equipmentId, equipmentName, onB
                         {assignedToThisVessel.length === 0 ? (
                             <div className="text-center py-4 text-foreground/40 text-sm">No items assigned to this vessel</div>
                         ) : (
-                            <div className="border border-foreground/10 bg-secondary/5">
+                            <div className="border border-foreground/10 bg-secondary/5 overflow-x-auto">
                                 <table className="w-full relative">
                                     <thead className="sticky top-0 bg-surface z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                                         <tr className="border-b border-foreground/10 bg-foreground/5">

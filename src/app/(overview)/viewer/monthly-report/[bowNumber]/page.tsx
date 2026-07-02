@@ -5,16 +5,17 @@ interface PageProps {
   params: Promise<{
     bowNumber: string
   }>
-  searchParams: {
+  searchParams: Promise<{
     month?: string
     year?: string
-  }
+  }>
 }
 
 export default async function ViewerBowReportPage({ params, searchParams }: PageProps) {
   const { bowNumber } = await params
-  const month = searchParams.month ? parseInt(searchParams.month, 10) : new Date().getMonth()
-  const year = searchParams.year ? parseInt(searchParams.year, 10) : new Date().getFullYear()
+  const resolvedSearchParams = await searchParams
+  const month = resolvedSearchParams.month ? parseInt(resolvedSearchParams.month, 10) : new Date().getMonth()
+  const year = resolvedSearchParams.year ? parseInt(resolvedSearchParams.year, 10) : new Date().getFullYear()
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: 'Overview', href: '/viewer' },

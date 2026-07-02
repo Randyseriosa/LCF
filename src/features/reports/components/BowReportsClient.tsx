@@ -17,9 +17,10 @@ const MONTHS = [
 
 interface BowReportsClientProps {
     basePath: string
+    showImport?: boolean
 }
 
-export function BowReportsClient({ basePath }: BowReportsClientProps) {
+export function BowReportsClient({ basePath, showImport = false }: BowReportsClientProps) {
     const [selectedMonth, setSelectedMonth] = useState(() => {
         if (typeof window !== 'undefined') {
             const saved = sessionStorage.getItem('lcf_monthly_report_month')
@@ -392,14 +393,16 @@ export function BowReportsClient({ basePath }: BowReportsClientProps) {
             )}
 
             {/* Dev Phase: Floating Clear All Reports Button */}
-            <button
-                onClick={() => setShowConfirmDialog(true)}
-                disabled={isClearing}
-                className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-error px-5 py-3 text-white shadow-lg hover:bg-error/90 disabled:opacity-50 transition-all hover:scale-105"
-            >
-                <Trash2 className="w-4 h-4" />
-                <span className="font-medium">{isClearing ? 'Clearing...' : 'Clear All Reports'}</span>
-            </button>
+            {showImport && (
+                <button
+                    onClick={() => setShowConfirmDialog(true)}
+                    disabled={isClearing}
+                    className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-error px-5 py-3 text-white shadow-lg hover:bg-error/90 disabled:opacity-50 transition-all hover:scale-105"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="font-medium">{isClearing ? 'Clearing...' : 'Clear All Reports'}</span>
+                </button>
+            )}
 
             <SuccessModal
                 isOpen={showSuccessModal}

@@ -11,11 +11,12 @@ import { ImportItemsModal } from '@/features/equipment/components/ImportItemsMod
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Package } from 'lucide-react'
+import { ROLES, type Role } from '@/lib/types/roles'
 
 type HLCFTab = 'hq' | 'masterlist' | 'reports'
 const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports']
 
-export function HLCFPageClient({ basePath }: { basePath: string }) {
+export function HLCFPageClient({ basePath, role }: { basePath: string; role?: Role }) {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -209,7 +210,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                                 </div>
 
                                 <div className="flex gap-2">
-                                    {reportExists && (
+                                    {role !== ROLES.viewer && reportExists && (
                                         <button
                                             onClick={handleClearReport}
                                             disabled={isClearingReport}
@@ -218,12 +219,14 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
                                             {isClearingReport ? 'Clearing...' : 'Clear Report'}
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() => setIsImportModalOpen(true)}
-                                        className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
-                                    >
-                                        {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
-                                    </button>
+                                    {role !== ROLES.viewer && (
+                                        <button
+                                            onClick={() => setIsImportModalOpen(true)}
+                                            className="bg-primary hover:bg-secondary-hover text-background px-6 py-2.5 text-xs font-bold uppercase tracking-widest shadow-card transition-colors"
+                                        >
+                                            {reportExists ? 'Update Monthly Report' : 'Import Monthly Report'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             <div className="mt-4">
@@ -238,7 +241,7 @@ export function HLCFPageClient({ basePath }: { basePath: string }) {
 
                     {activeTab === 'masterlist' && (
                         <div className="py-2">
-                            <MasterListTab />
+                            <MasterListTab role={role} />
                         </div>
                     )}
 

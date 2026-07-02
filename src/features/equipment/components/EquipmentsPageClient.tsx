@@ -190,7 +190,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
         }
 
         return (
-            <div className="border-t border-foreground/10 first:border-0">
+            <div className="border-t border-foreground/10 first:border-0 overflow-x-auto">
                 <table className="w-full relative border-collapse">
                     <thead className="sticky top-0 bg-surface z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                         <tr className="bg-foreground/5">

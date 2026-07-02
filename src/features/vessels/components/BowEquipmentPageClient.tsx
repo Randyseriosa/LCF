@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Role } from '@/lib/types/roles'
+import { Role, ROLES } from '@/lib/types/roles'
 import { ArrowLeft, Package, ShieldCheck } from 'lucide-react'
 import { useEquipmentWithItems } from '@/features/equipment/hooks/useEquipmentWithItems'
 import { ManageEquipmentItems } from '@/features/vessels/components/ManageEquipmentItems'
@@ -185,13 +185,15 @@ export function BowEquipmentPageClient({ slug, role }: { slug: string; role: Rol
                                             <ArrowLeft className="w-4 h-4" />
                                             Back to Equipments
                                         </button>
-                                        <button
-                                            onClick={() => setIsManageMode(true)}
-                                            className="text-sm pb-4 flex items-center gap-1 transition-colors border-b-2 border-transparent text-foreground-muted hover:text-foreground hover:border-foreground/20"
-                                        >
-                                            <ShieldCheck className="w-4 h-4" />
-                                            Manage
-                                        </button>
+                                        {role !== ROLES.viewer && (
+                                            <button
+                                                onClick={() => setIsManageMode(true)}
+                                                className="text-sm pb-4 flex items-center gap-1 transition-colors border-b-2 border-transparent text-foreground-muted hover:text-foreground hover:border-foreground/20"
+                                            >
+                                                <ShieldCheck className="w-4 h-4" />
+                                                Manage
+                                            </button>
+                                        )}
                                     </div>
                                     {(() => {
                                         const selectedEquipment = equipments.find(e => e.id === selectedEquipmentId)

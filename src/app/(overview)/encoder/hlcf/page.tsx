@@ -1,4 +1,5 @@
 import { HLCFPageClient } from '@/features/hlcf/components/HLCFPageClient'
+import { ROLES } from '@/lib/types/roles'
 
 export const metadata = {
   title: 'OLCF6 | Encoder',
@@ -6,5 +7,5 @@ export const metadata = {
 }
 
 export default function HLCFPage() {
-  return <HLCFPageClient basePath="/encoder" />
+  return <HLCFPageClient basePath="/encoder" role={ROLES.encoder} />
 }

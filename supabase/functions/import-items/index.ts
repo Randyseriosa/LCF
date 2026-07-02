@@ -228,9 +228,9 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Special case: if unique code contains OLCF6, assign to HQ-OLCF6
+        // Special case: if unique code contains OLCF6, assign to OLCF6
         if (!itemVesselId && item.unique_code.includes('OLCF6')) {
-          const hqVessel = vessels.find((v: any) => v.bow_number === 'HQ-OLCF6' || v.slug === 'hq-inventory')
+          const hqVessel = vessels.find((v: any) => v.bow_number === 'OLCF6' || v.slug === 'hq-inventory')
           if (hqVessel) {
             itemVesselId = hqVessel.id
           }

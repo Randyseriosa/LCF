@@ -78,9 +78,9 @@ export async function updateSession(request: NextRequest) {
 
     const isLoginPage = request.nextUrl.pathname.startsWith('/login')
     const isApiAuthRoute = request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.startsWith('/api/auth')
-    const isStaticAsset = request.nextUrl.pathname.startsWith('/_next') || 
-                          request.nextUrl.pathname.startsWith('/static') ||
-                          request.nextUrl.pathname.includes('.')
+    const isStaticAsset = request.nextUrl.pathname.startsWith('/_next') ||
+        request.nextUrl.pathname.startsWith('/static') ||
+        request.nextUrl.pathname.includes('.')
     const isPublicRoute = isLoginPage || isApiAuthRoute || isStaticAsset
 
     if (
@@ -145,10 +145,26 @@ export async function updateSession(request: NextRequest) {
             return NextResponse.redirect(url)
         }
 
-        if (request.nextUrl.pathname.startsWith('/viewer') && !([ROLES.admin, ROLES.encoder, ROLES.viewer] as Role[]).includes(role)) {
-            const url = request.nextUrl.clone()
-            url.pathname = `/${role}`
-            return NextResponse.redirect(url)
+        if (request.nextUrl.pathname.startsWith('/viewer')) {
+            if (!([ROLES.admin, ROLES.encoder, ROLES.viewer] as Role[]).includes(role)) {
+                const url = request.nextUrl.clone()
+                url.pathname = `/${role}`
+                return NextResponse.redirect(url)
+            }
+            if (role === ROLES.viewer) {
+                const path = request.nextUrl.pathname
+                const disallowedViewerPaths = [
+                    '/viewer/item-displacement',
+                    '/viewer/unserviceable-items',
+                    '/viewer/vessels',
+                    '/viewer/equipments'
+                ]
+                if (disallowedViewerPaths.some(p => path === p || path.startsWith(p + '/'))) {
+                    const url = request.nextUrl.clone()
+                    url.pathname = '/viewer'
+                    return NextResponse.redirect(url)
+                }
+            }
         }
     }
 

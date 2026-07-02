@@ -2,19 +2,20 @@ import { Breadcrumbs, type BreadcrumbItem } from '@/components/ui/Breadcrumbs'
 import { BowReportDetailsClient } from '@/features/reports/components/BowReportDetailsClient'
 
 interface PageProps {
-  params: {
+  params: Promise<{
     bowNumber: string
-  }
-  searchParams: {
+  }>
+  searchParams: Promise<{
     month?: string
     year?: string
-  }
+  }>
 }
 
-export default function AdminBowReportPage({ params, searchParams }: PageProps) {
-  const bowNumber = params.bowNumber
-  const month = searchParams.month ? parseInt(searchParams.month, 10) : new Date().getMonth()
-  const year = searchParams.year ? parseInt(searchParams.year, 10) : new Date().getFullYear()
+export default async function AdminBowReportPage({ params, searchParams }: PageProps) {
+  const { bowNumber } = await params
+  const resolvedSearchParams = await searchParams
+  const month = resolvedSearchParams.month ? parseInt(resolvedSearchParams.month, 10) : new Date().getMonth()
+  const year = resolvedSearchParams.year ? parseInt(resolvedSearchParams.year, 10) : new Date().getFullYear()
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: 'Overview', href: '/admin' },

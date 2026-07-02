@@ -4,6 +4,7 @@ import { Metadata } from 'next'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Archive } from 'lucide-react'
 import { RetiredItemsClient } from '@/features/items/components/RetiredItemsClient'
+import { ROLES } from '@/lib/types/roles'
 
 export const metadata: Metadata = {
     title: 'Item Management | Viewer',
@@ -20,7 +21,7 @@ export default function RetiredItemsPage() {
                 bannerImage="/images/banners/banner-general.webp"
             />
 
-            <RetiredItemsClient />
+            <RetiredItemsClient role={ROLES.viewer} />
         </div>
     )
 }
