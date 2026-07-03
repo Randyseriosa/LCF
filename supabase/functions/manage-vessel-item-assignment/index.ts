@@ -62,10 +62,10 @@ Deno.serve(async (req: Request) => {
 
       if (insertError) return errorResponse(insertError.message, 500)
 
-      // Update item's current_assignment_id
+      // Update item's current_assignment_id and vessel_id
       const { error: updateError } = await supabaseAdmin
         .from('items')
-        .update({ current_assignment_id: assignment.id })
+        .update({ current_assignment_id: assignment.id, vessel_id: vessel_id })
         .eq('id', item_id)
 
       if (updateError) return errorResponse(updateError.message, 500)
@@ -150,10 +150,10 @@ Deno.serve(async (req: Request) => {
             continue
           }
 
-          // Update item's current_assignment_id
+          // Update item's current_assignment_id and vessel_id
           await supabaseAdmin
             .from('items')
-            .update({ current_assignment_id: newAssignment.id })
+            .update({ current_assignment_id: newAssignment.id, vessel_id: vesselId })
             .eq('id', itemId)
 
           assignments.push(newAssignment)

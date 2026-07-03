@@ -81,10 +81,11 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                     nomenclature, 
                     is_status, 
                     vessel_id,
+                    current_assignment_id,
                     vessels!vessel_id (bow_number)
                 `)
                 .eq('is_status', 'active')
-                .is('vessel_id', null)
+                .is('current_assignment_id', null)
 
             const { data: unassignedData, error: unassignedError } = await unassignedQuery
                 .order('unique_code', { ascending: true })
@@ -231,19 +232,17 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                     Unserviceable items
                     {activeTab === 'retired' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
                 </button>
-                {role !== ROLES.viewer && (
-                    <button
-                        onClick={() => setActiveTab('unassigned')}
-                        className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
-                            ? 'text-primary bg-primary/5'
-                            : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
-                            }`}
-                    >
-                        <LayoutList className="w-4 h-4" />
-                        Unassigned Items
-                        {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
-                    </button>
-                )}
+                <button
+                    onClick={() => setActiveTab('unassigned')}
+                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'unassigned'
+                        ? 'text-primary bg-primary/5'
+                        : 'text-foreground-muted hover:text-primary hover:bg-primary/5'
+                        }`}
+                >
+                    <LayoutList className="w-4 h-4" />
+                    Unassigned Items
+                    {activeTab === 'unassigned' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary" />}
+                </button>
             </div>
 
             {/* Content */}
