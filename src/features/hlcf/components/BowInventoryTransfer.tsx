@@ -79,6 +79,7 @@ export function BowInventoryTransfer() {
             let query = supabase
                 .from('items')
                 .select('id, unique_code, nomenclature, classification')
+                .eq('is_status', 'active')
 
             if (hqVessel) {
                 query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)

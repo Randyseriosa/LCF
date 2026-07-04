@@ -50,10 +50,11 @@ export function MasterListTab({ role }: { role?: Role }) {
                 .eq('slug', 'hq-inventory')
                 .single()
 
-            // 2. Fetch items - either explicitly assigned to HQ or have OLCF6 in code
+            // 2. Fetch active items - either explicitly assigned to HQ or have OLCF6 in code
             let query = supabase
                 .from('items')
                 .select('*, equipments(name, unique_code)')
+                .eq('is_status', 'active')
 
             if (hqVessel) {
                 query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)

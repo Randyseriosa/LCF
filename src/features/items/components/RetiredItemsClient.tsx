@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MoreVertical, Archive, LayoutList, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
+import { MoreVertical, Archive, LayoutList, CheckCircle2, Loader2, AlertTriangle, RotateCcw } from 'lucide-react'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { getAccessToken } from '@/lib/auth'
@@ -33,6 +33,9 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
 
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
     const [itemToRetire, setItemToRetire] = useState<Item | null>(null)
+
+    const [isRevertConfirmModalOpen, setIsRevertConfirmModalOpen] = useState(false)
+    const [itemToRevert, setItemToRevert] = useState<Item | null>(null)
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
     const [successMessage, setSuccessMessage] = useState('')
@@ -212,11 +215,62 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                 ...prev
             ])
 
-        } catch (error: any) {
-            alert(`Error: ${error.message}`)
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error)
+            alert(`Error: ${message}`)
         } finally {
             setActionLoading(null)
             setItemToRetire(null)
+            setOpenMenuId(null)
+        }
+    }
+
+    const handleRevertToUnassigned = async () => {
+        if (!itemToRevert) return
+
+        setActionLoading(itemToRevert.id)
+        setIsRevertConfirmModalOpen(false)
+
+        try {
+            const token = await getAccessToken()
+            if (!token) throw new Error('Not authenticated')
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-item-status`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                    'X-Custom-Auth': `Bearer ${token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    itemId: itemToRevert.id,
+                    is_status: 'active'
+                })
+            })
+
+            const result = await response.json()
+            if (!response.ok) {
+                console.error('[RetiredItems] Revert Action Failed:', result)
+                throw new Error(result.error || result.details || 'Failed to revert item')
+            }
+
+            setSuccessMessage(`Item ${itemToRevert.unique_code} has been successfully reverted to Unassigned.`)
+            setIsSuccessModalOpen(true)
+
+            // Refetch or update state locally
+            setRetiredItems(prev => prev.filter(i => i.id !== itemToRevert.id))
+            setUnassignedItems(prev => [
+                { ...itemToRevert, ...result, is_status: 'active' },
+                ...prev
+            ])
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error)
+            alert(`Error: ${message}`)
+        } finally {
+            setActionLoading(null)
+            setItemToRevert(null)
             setOpenMenuId(null)
         }
     }
@@ -269,15 +323,24 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Classification</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Nomenclature</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Bow Number</th>
-                                    {activeTab === 'unassigned' && role !== ROLES.viewer && (
-                                        <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em] text-center">Actions</th>
-                                    )}
+                                    {((activeTab === 'unassigned' && role !== ROLES.viewer) ||
+                                        (activeTab === 'retired' && role === ROLES.admin)) && (
+                                            <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em] text-center">Actions</th>
+                                        )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-primary/5">
                                 {(activeTab === 'retired' ? retiredItems : unassignedItems).length === 0 ? (
                                     <tr>
-                                        <td colSpan={activeTab === 'unassigned' && role !== ROLES.viewer ? 7 : 6} className="px-6 py-20 text-center">
+                                        <td
+                                            colSpan={
+                                                (activeTab === 'unassigned' && role !== ROLES.viewer) ||
+                                                    (activeTab === 'retired' && role === ROLES.admin)
+                                                    ? 7
+                                                    : 6
+                                            }
+                                            className="px-6 py-20 text-center"
+                                        >
                                             <div className="flex flex-col items-center gap-2 opacity-40">
                                                 <Archive className="w-12 h-12 text-primary/40 mb-2" />
                                                 <p className="text-xs font-bold uppercase tracking-widest text-primary">No Items Found</p>
@@ -307,16 +370,17 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                                                     {getDisplayBow(item)}
                                                 </span>
                                             </td>
-                                            {activeTab === 'unassigned' && role !== ROLES.viewer && (
-                                                <td className="px-6 py-4 text-center">
-                                                    <button
-                                                        onClick={(e) => toggleMenu(item.id, e)}
-                                                        className="p-2 hover:bg-primary/10 text-primary transition-colors inline-flex border border-transparent hover:border-primary/20"
-                                                    >
-                                                        <MoreVertical className="w-4 h-4" />
-                                                    </button>
-                                                </td>
-                                            )}
+                                            {((activeTab === 'unassigned' && role !== ROLES.viewer) ||
+                                                (activeTab === 'retired' && role === ROLES.admin)) && (
+                                                    <td className="px-6 py-4 text-center">
+                                                        <button
+                                                            onClick={(e) => toggleMenu(item.id, e)}
+                                                            className="p-2 hover:bg-primary/10 text-primary transition-colors inline-flex border border-transparent hover:border-primary/20"
+                                                        >
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                )}
                                         </tr>
                                     ))
                                 )}
@@ -349,6 +413,19 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                             Declare Unserviceable item
                         </button>
                     )}
+                    {activeTab === 'retired' && role === ROLES.admin && retiredItems.find(i => i.id === openMenuId) && (
+                        <button
+                            onClick={() => {
+                                setItemToRevert(retiredItems.find(i => i.id === openMenuId) || null)
+                                setIsRevertConfirmModalOpen(true)
+                                setOpenMenuId(null)
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/5 transition-colors border-l-2 border-transparent hover:border-primary"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Revert to Unassigned
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -366,11 +443,25 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                 cancelText="Cancel"
             />
 
+            {/* Confirm Revert Modal */}
+            <ConfirmModal
+                isOpen={isRevertConfirmModalOpen}
+                onClose={() => {
+                    setIsRevertConfirmModalOpen(false)
+                    setItemToRevert(null)
+                }}
+                onConfirm={handleRevertToUnassigned}
+                title="Confirm Revert to Unassigned"
+                message={`Are you sure you want to revert item ${itemToRevert?.unique_code} back to unassigned? This will restore the item as an active, unassigned asset in the inventory manifest.`}
+                confirmText="Confirm Revert"
+                cancelText="Cancel"
+            />
+
             {/* Success Modal */}
             <SuccessModal
                 isOpen={isSuccessModalOpen}
                 onClose={() => setIsSuccessModalOpen(false)}
-                title="Unserviceable Item Recorded"
+                title="Status Change Recorded"
                 message={successMessage}
             />
         </div>

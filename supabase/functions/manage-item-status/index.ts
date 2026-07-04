@@ -62,6 +62,14 @@ Deno.serve(async (req: Request) => {
             throw new Error('Invalid is_status')
         }
 
+        // Only admin role is allowed to revert items back to active status (revert unserviceable to unassigned)
+        if (is_status === 'active' && jwtPayload.role !== 'admin') {
+            return new Response(JSON.stringify({ error: 'Forbidden: Only admin can revert unserviceable items to unassigned' }), {
+                status: 403,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         const { data, error } = await supabaseClient
             .from('items')
             .update({ is_status })

@@ -40,6 +40,7 @@ export function useEquipmentItems(equipmentId: string | null) {
                 .from('items')
                 .select('*')
                 .eq('equipment_id', equipmentId)
+                .eq('is_status', 'active')
                 .order('unique_code', { ascending: true })
 
             if (error) throw error

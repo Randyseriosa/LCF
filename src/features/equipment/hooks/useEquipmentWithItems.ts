@@ -72,6 +72,7 @@ export function useEquipmentWithItems(vesselId?: string) {
                 const { data: itemsWithAssignments, error: itemError } = await supabase
                     .from('items')
                     .select('*, vessel_item_assignments!current_assignment_id(vessel_id)')
+                    .eq('is_status', 'active')
                     .not('current_assignment_id', 'is', null)
 
                 if (itemError) throw itemError
@@ -82,10 +83,11 @@ export function useEquipmentWithItems(vesselId?: string) {
                     return assignment && assignment.vessel_id === vesselId
                 })
             } else {
-                // Fetch all items if no vesselId specified
+                // Fetch all active items if no vesselId specified
                 const { data: allItems, error: itemError } = await supabase
                     .from('items')
                     .select('*')
+                    .eq('is_status', 'active')
 
                 if (itemError) throw itemError
                 itemData = allItems

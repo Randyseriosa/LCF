@@ -18,10 +18,11 @@ export function useVesselItemAssignments(vesselId: string | null, equipmentId: s
         setLoading(true)
         setError(null)
         try {
-            // Fetch ALL items for the specific equipment (both assigned and unassigned)
+            // Fetch ALL active items for the specific equipment (both assigned and unassigned)
             let query = supabase
                 .from('items')
                 .select('*')
+                .eq('is_status', 'active')
 
             if (equipmentId) {
                 query = query.eq('equipment_id', equipmentId)
@@ -56,7 +57,7 @@ export function useVesselItemAssignments(vesselId: string | null, equipmentId: s
                 }
 
                 // Fetch vessel names for items assigned to other vessels
-                const itemsWithOtherAssignments = allItems.filter((item: any) => 
+                const itemsWithOtherAssignments = allItems.filter((item: any) =>
                     item.current_assignment_id && !thisVesselAssignmentMap.has(item.id)
                 )
 
