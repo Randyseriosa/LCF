@@ -7,6 +7,8 @@ import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { getAccessToken } from '@/lib/auth'
 import { ROLES, type Role } from '@/lib/types/roles'
+import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
+
 
 interface Item {
     id: string
@@ -18,6 +20,8 @@ interface Item {
     vessel?: {
         bow_number: string
     }
+    unserviceable_at?: string | null
+    unassigned_at?: string | null
 }
 
 export function RetiredItemsClient({ role }: { role?: Role }) {
@@ -53,10 +57,11 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                     nomenclature, 
                     is_status, 
                     vessel_id,
+                    unserviceable_at,
                     vessels!vessel_id (bow_number)
                 `)
                 .eq('is_status', 'retired')
-                .order('updated_at', { ascending: false })
+                .order('unserviceable_at', { ascending: false })
 
             if (retiredError) {
                 console.error('[RetiredItems] Retired Data Error:', retiredError)
@@ -82,13 +87,14 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                     is_status, 
                     vessel_id,
                     current_assignment_id,
+                    unassigned_at,
                     vessels!vessel_id (bow_number)
                 `)
                 .eq('is_status', 'active')
                 .is('current_assignment_id', null)
 
             const { data: unassignedData, error: unassignedError } = await unassignedQuery
-                .order('unique_code', { ascending: true })
+                .order('unassigned_at', { ascending: false })
 
             if (unassignedError) {
                 console.error('[RetiredItems] Unassigned Data Error:', unassignedError)
@@ -258,6 +264,7 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                             <thead>
                                 <tr className="bg-primary/5 border-b border-primary/10">
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Status</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">{activeTab === 'retired' ? 'Date Unserviceable' : 'Date Unassigned'}</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Unique Code</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Classification</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Nomenclature</th>
@@ -270,7 +277,7 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                             <tbody className="divide-y divide-primary/5">
                                 {(activeTab === 'retired' ? retiredItems : unassignedItems).length === 0 ? (
                                     <tr>
-                                        <td colSpan={activeTab === 'unassigned' ? 6 : 5} className="px-6 py-20 text-center">
+                                        <td colSpan={activeTab === 'unassigned' && role !== ROLES.viewer ? 7 : 6} className="px-6 py-20 text-center">
                                             <div className="flex flex-col items-center gap-2 opacity-40">
                                                 <Archive className="w-12 h-12 text-primary/40 mb-2" />
                                                 <p className="text-xs font-bold uppercase tracking-widest text-primary">No Items Found</p>
@@ -288,6 +295,9 @@ export function RetiredItemsClient({ role }: { role?: Role }) {
                                                     }`}>
                                                     {item.is_status === 'retired' ? 'UNSERVICEABLE' : 'UNASSIGNED'}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs font-bold text-primary tracking-wider">
+                                                {formatDateToDDMMYYYY(activeTab === 'retired' ? item.unserviceable_at : item.unassigned_at) || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4 text-xs font-bold text-primary tracking-wider">{item.unique_code}</td>
                                             <td className="px-6 py-4 text-xs text-foreground uppercase tracking-wide">{item.classification}</td>

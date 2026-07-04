@@ -1097,12 +1097,126 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
             </div>
           </div>
 
-          {(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0) && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-error bg-error-bg p-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>
-                Import blocked. Please fix the report discrepancies ({syncCheckResults.notOnMasterlist.length} not on masterlist, {syncCheckResults.missedItems.length} missed items) before importing.
-              </span>
+          {(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0) && (
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm text-error bg-error-bg p-3">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>
+                  Import blocked. Please fix the report discrepancies ({syncCheckResults.notOnMasterlist.length} not on masterlist, {syncCheckResults.missedItems.length} missed items, {syncCheckResults.internalDuplicates.length} duplicates) before importing.
+                </span>
+              </div>
+
+              <div className="bg-surface border border-foreground/10 p-4 shadow-card space-y-4">
+                <div className="flex items-center gap-2 border-b border-foreground/10 pb-2">
+                  <AlertCircle className="w-4 h-4 text-primary" />
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
+                    Discrepancy Overview
+                  </h4>
+                </div>
+
+                {syncCheckResults.missedItems.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        <span>▼ Missed Items in Report</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {syncCheckResults.missedItems.length} Missing
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-foreground/5 border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Equipment Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {syncCheckResults.missedItems.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-foreground-muted font-bold text-xs">{item.equipment_code}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {syncCheckResults.notOnMasterlist.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        <span>▲ Report Items Not on Masterlist</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {syncCheckResults.notOnMasterlist.length} Items Not on Masterlist
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-foreground/5 border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Serial Number</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {syncCheckResults.notOnMasterlist.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.serial_number || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {syncCheckResults.internalDuplicates.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        <span>⧉ Duplicate Codes in File</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {syncCheckResults.internalDuplicates.length} Duplicates
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-foreground/5 border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {syncCheckResults.internalDuplicates.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
