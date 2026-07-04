@@ -1,7 +1,10 @@
 # Anchor Point Launch Script
 # This script automates the startup sequence for the Inventory System.
 
-$ProjectRoot = "d:\Project\Inventorysys\lcfpf-inv-sys"
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+if (-not $ProjectRoot) {
+    $ProjectRoot = Get-Location
+}
 Set-Location $ProjectRoot
 
 # 0. Ensure Docker is running
@@ -24,10 +27,10 @@ else {
 
 # 1. Start development servers in separate windows
 Write-Host "Starting Next.js development server..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit -Command", "npm run dev"
+Start-Process powershell -ArgumentList "-NoExit -Command", "npm run dev" -WorkingDirectory $ProjectRoot
 
 Write-Host "Starting Supabase functions..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit -Command", "npm run function"
+Start-Process powershell -ArgumentList "-NoExit -Command", "npm run function" -WorkingDirectory $ProjectRoot
 
 # 2. Wait for localhost:3000 to be available
 Write-Host "Waiting for OLCF6 to initialize..." -ForegroundColor Cyan
