@@ -48,8 +48,8 @@ export function Sidebar({ role }: { role: Role }) {
                 { name: 'Overview', href: '/admin', icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: '/admin/global-inventory-view', icon: FileText },
                 { name: 'Reports', href: '/admin/monthly-report', icon: FileBarChart2 },
-                { name: 'Item Displacement', href: '/admin/item-displacement', icon: ArrowLeftRight },
-                { name: 'Item Management', href: '/admin/unserviceable-items', icon: Archive },
+                { name: 'Transfer Items', href: '/admin/transfer-items', icon: ArrowLeftRight },
+                { name: 'Unserviceable Items', href: '/admin/unserviceable-items', icon: Archive },
                 { name: 'Settings', href: '/admin/settings', icon: Settings },
                 { name: 'Users', href: '/admin/users', icon: Users }
             )
@@ -59,8 +59,8 @@ export function Sidebar({ role }: { role: Role }) {
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
                 { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
-                { name: 'Item Displacement', href: `/${role}/item-displacement`, icon: ArrowLeftRight },
-                { name: 'Item Management', href: `/${role}/unserviceable-items`, icon: Archive },
+                { name: 'Transfer Items', href: `/${role}/transfer-items`, icon: ArrowLeftRight },
+                { name: 'Unserviceable Items', href: `/${role}/unserviceable-items`, icon: Archive },
                 { name: 'Settings', href: `/${role}/settings`, icon: Settings }
             )
             break
@@ -69,8 +69,8 @@ export function Sidebar({ role }: { role: Role }) {
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
                 { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
                 { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
-                { name: 'Item Displacement', href: `/${role}/item-displacement`, icon: ArrowLeftRight },
-                { name: 'Item Management', href: `/${role}/unserviceable-items`, icon: Archive }
+                { name: 'Transfer Items', href: `/${role}/transfer-items`, icon: ArrowLeftRight },
+                { name: 'Unserviceable Items', href: `/${role}/unserviceable-items`, icon: Archive }
             )
             break
     }

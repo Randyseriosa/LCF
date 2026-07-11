@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 
 interface ValidationResult {
   valid: boolean
@@ -20,8 +20,7 @@ export function useItemCode() {
       const user = await getAuthUser()
       if (!user) throw new Error('Not authenticated')
 
-      const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-      const token = match ? decodeURIComponent(match[1]) : null
+      const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-item-code`, {
@@ -56,8 +55,7 @@ export function useItemCode() {
       const user = await getAuthUser()
       if (!user) throw new Error('Not authenticated')
 
-      const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-      const token = match ? decodeURIComponent(match[1]) : null
+      const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-item-code`, {

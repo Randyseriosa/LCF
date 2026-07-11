@@ -53,6 +53,13 @@ Deno.serve(async (req: Request) => {
         return errorResponse('item_id and vessel_id are required for create', 400)
       }
 
+      // Deactivate any existing active assignment for this item to enforce uniqueness
+      await supabaseAdmin
+        .from('vessel_item_assignments')
+        .update({ is_current: false })
+        .eq('item_id', item_id)
+        .eq('is_current', true)
+
       // Create new assignment
       const { error: insertError, data: assignment } = await supabaseAdmin
         .from('vessel_item_assignments')
@@ -122,21 +129,12 @@ Deno.serve(async (req: Request) => {
             continue
           }
 
-          // Check if item already has a current assignment (to another vessel)
-          const { data: existingAssignment } = await supabaseAdmin
+          // Mark any existing assignments for this item as not current
+          await supabaseAdmin
             .from('vessel_item_assignments')
-            .select('id, item_id')
+            .update({ is_current: false })
             .eq('item_id', itemId)
             .eq('is_current', true)
-            .single()
-
-          if (existingAssignment) {
-            // Mark existing assignment as not current
-            await supabaseAdmin
-              .from('vessel_item_assignments')
-              .update({ is_current: false })
-              .eq('id', existingAssignment.id)
-          }
 
           // Create new assignment
           const { data: newAssignment, error: insertError } = await supabaseAdmin
@@ -250,6 +248,8 @@ Deno.serve(async (req: Request) => {
         return `${eqTypeCode}-${bowNumber}-${sequentialNumber}`
       }
 
+      // PHASE 1: Resolve all proposed unique codes and check basic details
+      const resolvedItems = []
       for (const itemId of selectedIds) {
         // Find current assignment & item details
         const { data: existingAssignment } = await supabaseAdmin
@@ -257,7 +257,7 @@ Deno.serve(async (req: Request) => {
           .select('id, item_id, vessel_id')
           .eq('item_id', itemId)
           .eq('is_current', true)
-          .single()
+          .maybeSingle()
 
         // Get item info
         const { data: itemInfo } = await supabaseAdmin
@@ -267,24 +267,81 @@ Deno.serve(async (req: Request) => {
           .single()
 
         if (!itemInfo) {
-          console.error(`Item not found: ${itemId}`)
-          continue
+          return errorResponse(`Item with ID ${itemId} not found`, 404)
         }
-
-        const oldVesselId = existingAssignment ? existingAssignment.vessel_id : itemInfo.vessel_id
-        const oldUniqueCode = itemInfo.unique_code
 
         // Skip if it's already assigned to target vessel
         if (existingAssignment && existingAssignment.vessel_id === vesselId) {
           continue
         }
 
+        let newUniqueCode = customCodes?.[itemId]
+        if (!newUniqueCode) {
+          newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id, itemInfo.unique_code)
+        }
+
+        newUniqueCode = newUniqueCode.trim()
+        if (!newUniqueCode) {
+          return errorResponse(`Unique code for item '${itemInfo.nomenclature}' cannot be empty`, 400)
+        }
+
+        resolvedItems.push({
+          itemId,
+          itemInfo,
+          existingAssignment,
+          newUniqueCode,
+          oldVesselId: existingAssignment ? existingAssignment.vessel_id : itemInfo.vessel_id,
+          oldUniqueCode: itemInfo.unique_code
+        })
+      }
+
+      // PHASE 2: Validation Check against Duplicate Unique Codes
+      // a) check batch internal duplicates
+      const batchCodes = new Set<string>()
+      for (const item of resolvedItems) {
+        if (batchCodes.has(item.newUniqueCode)) {
+          return errorResponse(`Duplicate unique code collision: '${item.newUniqueCode}' is assigned to multiple items in this transfer batch.`, 400)
+        }
+        batchCodes.add(item.newUniqueCode)
+      }
+
+      // b) check database collisions
+      if (resolvedItems.length > 0) {
+        const uniqueCodesToCheck = resolvedItems.map(item => item.newUniqueCode)
+        const { data: existingItems, error: checkError } = await supabaseAdmin
+          .from('items')
+          .select('id, unique_code, nomenclature')
+          .in('unique_code', uniqueCodesToCheck)
+
+        if (checkError) {
+          return errorResponse(`Error checking code uniqueness: ${checkError.message}`, 500)
+        }
+
+        if (existingItems && existingItems.length > 0) {
+          // If any code belongs to a DIFFERENT item, fail.
+          for (const ext of existingItems) {
+            const match = resolvedItems.find(item => item.newUniqueCode === ext.unique_code)
+            if (match && match.itemId !== ext.id) {
+              return errorResponse(`Unique code collision: Code '${ext.unique_code}' is already assigned to item '${ext.nomenclature}' in the database.`, 400)
+            }
+          }
+        }
+      }
+
+      // PHASE 3: Perform mutations (now guaranteed to not violate unique code constraints)
+      for (const item of resolvedItems) {
+        const { itemId, itemInfo, existingAssignment, newUniqueCode, oldVesselId, oldUniqueCode } = item
+
         if (existingAssignment) {
           // Mark existing assignment as not current
-          await supabaseAdmin
+          const { error: updateOldErr } = await supabaseAdmin
             .from('vessel_item_assignments')
             .update({ is_current: false })
             .eq('id', existingAssignment.id)
+
+          if (updateOldErr) {
+            return errorResponse(`Failed to update old assignment: ${updateOldErr.message}`, 500)
+          }
         }
 
         // Create new assignment
@@ -295,17 +352,11 @@ Deno.serve(async (req: Request) => {
           .single()
 
         if (insertError) {
-          console.error(`Failed to assign item ${itemId}:`, insertError)
-          continue
-        }
-
-        let newUniqueCode = customCodes?.[itemId]
-        if (!newUniqueCode) {
-          newUniqueCode = await getNextUniqueCode(itemInfo.equipment_id, itemInfo.unique_code)
+          return errorResponse(`Failed to assign item ${itemInfo.nomenclature}: ${insertError.message}`, 500)
         }
 
         // Update item's current_assignment_id, vessel_id, unique_code
-        await supabaseAdmin
+        const { error: updateItemErr } = await supabaseAdmin
           .from('items')
           .update({
             current_assignment_id: newAssignment.id,
@@ -314,8 +365,12 @@ Deno.serve(async (req: Request) => {
           })
           .eq('id', itemId)
 
+        if (updateItemErr) {
+          return errorResponse(`Failed to update item unique code for ${itemInfo.nomenclature}: ${updateItemErr.message}`, 500)
+        }
+
         // Insert into item_transfer_logs
-        await supabaseAdmin
+        const { error: logErr } = await supabaseAdmin
           .from('item_transfer_logs')
           .insert({
             item_id: itemId,
@@ -326,6 +381,10 @@ Deno.serve(async (req: Request) => {
             performed_by: jwtPayload.user_id,
             action: 'Transferred'
           })
+
+        if (logErr) {
+          return errorResponse(`Failed to create transfer log: ${logErr.message}`, 500)
+        }
 
         assignments.push({
           item_id: itemId,
@@ -406,7 +465,7 @@ Deno.serve(async (req: Request) => {
           .select('id, vessel_id')
           .eq('item_id', itemId)
           .eq('is_current', true)
-          .single()
+          .maybeSingle()
 
         const { data: itemInfo } = await supabaseAdmin
           .from('items')

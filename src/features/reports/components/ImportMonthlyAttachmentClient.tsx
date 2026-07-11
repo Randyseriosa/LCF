@@ -101,7 +101,7 @@ export function ImportMonthlyAttachmentClient() {
                                 month: parsed.month,
                                 year: parsed.year,
                                 status: 'error',
-                                error: `Vessel "${parsed.bowNumber}" not found.`
+                                error: `Vessel '${parsed.bowNumber}' not found. Please ask Admin to register this vessel first.`
                             } as FileQueueItem
                         }
                     }

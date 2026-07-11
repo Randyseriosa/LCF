@@ -5,7 +5,7 @@ import { Upload, FileText, AlertCircle, Search, XCircle, ChevronRight, Anchor, C
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import { useVessels } from '@/hooks/useVessels'
 import { useVesselItems, VesselItem } from '@/hooks/useVesselItems'
 import { createClient } from '@/lib/supabase/client'
@@ -158,8 +158,7 @@ export function DerangementImportClient() {
             const user = await getAuthUser()
             if (!user) throw new Error('Not authenticated')
 
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const supabase = createClient()
@@ -240,8 +239,7 @@ export function DerangementImportClient() {
         setShowConfirmModal(false)
 
         try {
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const supabase = createClient()

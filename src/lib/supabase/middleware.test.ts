@@ -19,6 +19,8 @@ jest.mock('@supabase/ssr', () => ({
     }),
 }))
 
+let currentToken = ''
+
 jest.mock('next/server', () => ({
     NextResponse: {
         next: jest.fn().mockImplementation((args) => {
@@ -40,7 +42,19 @@ jest.mock('next/server', () => ({
         })
         return {
             nextUrl,
-            cookies: { getAll: jest.fn().mockReturnValue([]) },
+            cookies: {
+                getAll: jest.fn().mockReturnValue([]),
+                get: jest.fn().mockImplementation((name) => {
+                    if (name === 'access_token') return { value: currentToken }
+                    return null
+                })
+            },
+            headers: {
+                get: jest.fn().mockImplementation((name) => {
+                    if (name === 'authorization') return `Bearer ${currentToken}`
+                    return null
+                })
+            },
             url
         }
     })
@@ -58,6 +72,7 @@ describe('updateSession Role-based Access', () => {
             data: { role: ROLES.viewer, is_active: USER_STATUS.active },
             error: null
         })
+        currentToken = ''
     })
 
     const mockProfile = (role: string, isActive: string = USER_STATUS.active) => {
@@ -65,6 +80,14 @@ describe('updateSession Role-based Access', () => {
             data: { role, is_active: isActive },
             error: null
         })
+        const payload = {
+            user_id: 'user-123',
+            username: 'testuser',
+            role,
+            is_active: isActive,
+            exp: Math.floor(Date.now() / 1000) + 3600
+        }
+        currentToken = `header.${btoa(JSON.stringify(payload))}.sig`
     }
 
     describe('Viewer Role', () => {

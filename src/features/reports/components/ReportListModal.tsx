@@ -6,6 +6,7 @@ import { useItemDerangementReports } from '@/hooks/useDerangementItems'
 import { createClient } from '@/lib/supabase/client'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { getValidAccessToken } from '@/lib/auth'
 
 interface ReportListModalProps {
     isOpen: boolean
@@ -66,8 +67,7 @@ export function ReportListModal({
 
         try {
             const supabase = createClient()
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const { data, error: functionError } = await supabase.functions.invoke('delete-derangement-report', {

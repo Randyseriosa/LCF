@@ -6,6 +6,7 @@ import { Filter, FileText, Trash2, AlertTriangle } from 'lucide-react'
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { useClassesOfVessel, type ClassOfVessel } from '@/hooks/useClassesOfVessel'
+import { getValidAccessToken } from '@/lib/auth'
 
 const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -31,8 +32,7 @@ export function ReportsClient({ basePath, showClearButton = false }: ReportsClie
     const handleClearReports = async () => {
         setIsClearing(true)
         try {
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-monthly-report`, {

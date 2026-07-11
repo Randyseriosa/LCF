@@ -7,14 +7,14 @@ import { BowInventoryTransfer } from '@/features/hlcf/components/BowInventoryTra
 import { HistoryLogs } from '@/features/hlcf/components/HistoryLogs'
 import { ROLES, type Role } from '@/lib/types/roles'
 
-export function ItemDisplacementClient({ role }: { role?: Role }) {
+export function TransferItemsClient({ role }: { role?: Role }) {
     const isViewer = role === ROLES.viewer
     const [activeTab, setActiveTab] = useState<'displacement' | 'history'>(isViewer ? 'history' : 'displacement')
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Item Displacement"
+                title="Transfer Items"
                 description={isViewer ? "View history of item transfers" : "Transfer items between vessels"}
                 Icon={ArrowLeftRight}
                 bannerImage="/images/banners/banner-general.webp"

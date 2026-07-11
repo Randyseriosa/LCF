@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Role, ROLES } from '@/lib/types/roles'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import { useEquipments } from '../hooks/useEquipments'
 import { useEquipmentUniqueCode } from '../hooks/useEquipmentUniqueCode'
 import { useEquipmentItems, Item } from '../hooks/useEquipmentItems'
@@ -12,8 +12,9 @@ import { Plus, Pencil, Trash2, X, Settings, ArrowLeft, Wrench, ShieldCheck } fro
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ImportItemsModal, type ParsedFileInfo } from './ImportItemsModal'
 import { SuccessModal } from '@/components/ui/SuccessModal'
-import { getEquipmentGroupFromUniqueCode, getEquipmentGroupLabel, isNavigationalGroup, EquipmentGroup } from '../utils/equipmentGroup'
+import { getEquipmentGroupFromUniqueCode, getEquipmentGroupLabel, isNavigationalGroup, EquipmentGroup, isAmmunitionGroup } from '../utils/equipmentGroup'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
+import { Equipment } from '../hooks/useEquipments'
 
 /**  Map each equipment group to its header banner photo */
 const EQUIPMENT_BANNERS: Record<EquipmentGroup, string> = {
@@ -35,7 +36,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
     const [modalError, setModalError] = useState<string | null>(null)
     const [isSaving, setIsSaving] = useState(false)
     const [uniqueCodeError, setUniqueCodeError] = useState<string | null>(null)
-    const [selectedEquipment, setSelectedEquipment] = useState<{ id: string, name: string, unique_code?: string } | null>(null)
+    const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
     const [importModalEquipmentId, setImportModalEquipmentId] = useState<string | null>(null)
     const [importModalEquipmentName, setImportModalEquipmentName] = useState<string | null>(null)
@@ -116,7 +117,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
         }
     }
 
-    const handleCardClick = (equipment: { id: string, name: string }) => {
+    const handleCardClick = (equipment: Equipment) => {
         setSelectedEquipment(equipment)
     }
 
@@ -145,8 +146,7 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
             const user = await getAuthUser()
             if (!user) throw new Error('Not authenticated')
 
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const response = await fetch(
@@ -179,7 +179,9 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
     const ItemTable = ({ items, group }: { items: Item[], group: EquipmentGroup }) => {
         const isNavigational = isNavigationalGroup(group)
         const dateColumnLabel = isNavigational ? 'Date Issued' : 'Date Installed'
-        const isAmmunition = selectedEquipment?.unique_code?.startsWith('AM') || false
+        const isAmmunition = selectedEquipment
+            ? isAmmunitionGroup(selectedEquipment.equipment_type, selectedEquipment.unique_code, selectedEquipment.name)
+            : false
 
         if (items.length === 0) {
             return (

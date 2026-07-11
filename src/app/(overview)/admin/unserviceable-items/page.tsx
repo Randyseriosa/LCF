@@ -7,7 +7,7 @@ import { RetiredItemsClient } from '@/features/items/components/RetiredItemsClie
 import { ROLES } from '@/lib/types/roles'
 
 export const metadata: Metadata = {
-    title: 'Item Management | Admin',
+    title: 'Unserviceable Items | Admin',
     description: 'Manage decommissioned equipment and inventory',
 }
 
@@ -15,7 +15,7 @@ export default function RetiredItemsPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Item Management"
+                title="Unserviceable Items"
                 description="Manage decommissioned equipment and inventory"
                 Icon={Archive}
                 bannerImage="/images/banners/banner-general.webp"

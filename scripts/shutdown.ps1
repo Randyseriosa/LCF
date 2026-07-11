@@ -19,19 +19,19 @@ $port3000Pids = @()
 $netstatLines = netstat -ano 2>$null | Select-String "LISTENING" | Select-String ":3000 "
 foreach ($line in $netstatLines) {
     $parts = ($line -split '\s+')
-    $pid = $parts[-1]
-    if ($pid -and $pid -ne "0" -and $port3000Pids -notcontains $pid) {
-        $port3000Pids += $pid
+    $targetPid = $parts[-1]
+    if ($targetPid -and $targetPid -ne "0" -and $port3000Pids -notcontains $targetPid) {
+        $port3000Pids += $targetPid
     }
 }
 
 if ($port3000Pids.Count -gt 0) {
-    foreach ($pid in $port3000Pids) {
+    foreach ($targetPid in $port3000Pids) {
         try {
-            $proc = Get-Process -Id ([int]$pid) -ErrorAction SilentlyContinue
+            $proc = Get-Process -Id ([int]$targetPid) -ErrorAction SilentlyContinue
             if ($proc) {
-                Write-Host ("  Stopping {0} (PID {1})" -f $proc.ProcessName, $pid) -ForegroundColor Yellow
-                Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+                Write-Host ("  Stopping {0} (PID {1})" -f $proc.ProcessName, $targetPid) -ForegroundColor Yellow
+                Stop-Process -Id ([int]$targetPid) -Force -ErrorAction SilentlyContinue
             }
         }
         catch { }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Edit2, Save, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import { type Role } from '@/lib/types/roles'
 
 interface Equipment {
@@ -66,8 +66,7 @@ export function SettingsPageClient({ role }: { role: Role }) {
       const user = await getAuthUser()
       if (!user) throw new Error('Not authenticated')
 
-      const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-      const token = match ? decodeURIComponent(match[1]) : null
+      const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
 
       // Convert equipment_type to lowercase
@@ -95,7 +94,7 @@ export function SettingsPageClient({ role }: { role: Role }) {
       setEditingId(null)
       setShowEditModal(false)
       await fetchEquipments()
-      
+
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
       setError(err.message || 'Failed to update equipment')
@@ -234,7 +233,7 @@ export function SettingsPageClient({ role }: { role: Role }) {
               <h3 className="text-[20px] font-semibold text-foreground mb-2">
                 Edit Equipment
               </h3>
-              
+
               <div className="space-y-4 py-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">

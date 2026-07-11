@@ -147,6 +147,27 @@ function formatDateToISO(dateInput: string | number | null | undefined): string 
 }
 
 /**
+ * Compare two values for equality (handles null/undefined and string comparison)
+ */
+function valuesMatch(value1: string | null | undefined, value2: string | null | undefined): boolean {
+  const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase()
+  return normalize(value1) === normalize(value2)
+}
+
+/**
+ * Compare two dates for equality
+ */
+function datesMatch(date1: string | number | null | undefined, date2: string | null | undefined): boolean {
+  if (!date1 && !date2) return true
+  if (!date1 || !date2) return false
+  const parsedLhs = formatDateToISO(date1)
+  const parsedRhs = date2 ? date2.slice(0, 10) : null
+  if (!parsedLhs) return false
+  return parsedLhs === parsedRhs
+}
+
+
+/**
  * Build column map for a section based on headers
  */
 function buildColumnMap(headers: string[]): Record<string, number> {
@@ -403,6 +424,18 @@ async function createReport(
   reportMonth: string,
   userId: string
 ): Promise<{ reportId: string; error?: string }> {
+  // Delete existing report if any (since we are overwriting it)
+  const { error: deleteError } = await supabaseAdmin
+    .from('monthly_reports')
+    .delete()
+    .eq('vessel_id', vesselId)
+    .eq('report_month', reportMonth)
+
+  if (deleteError) {
+    console.error('[import-monthly-report] Error deleting existing report:', deleteError)
+    return { reportId: '', error: `Failed to clear existing report before import: ${deleteError.message}` }
+  }
+
   const { data: newReport, error: createReportError } = await supabaseAdmin
     .from('monthly_reports')
     .insert({
@@ -488,48 +521,42 @@ async function validateAmmunitionData(
     previousAmmoItems.map((item: any) => [item.unique_code, item.balance_on_hand])
   )
 
-  // If no previous report exists, validate against masterlist
-  if (!previousReportId && previousAmmoItems.length === 0) {
-    const uniqueCodes = ammunitionItems.map(item => item.unique_code)
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('items')
-      .select('unique_code, quantity')
-      .in('unique_code', uniqueCodes)
+  // Always fetch masterlist quantities to check fallback for first monthly report or newly assigned ammunition items
+  const uniqueCodes = ammunitionItems.map(item => item.unique_code)
+  const { data: items, error: itemsError } = await supabaseAdmin
+    .from('items')
+    .select('unique_code, quantity')
+    .in('unique_code', uniqueCodes)
 
-    if (itemsError) {
-      return { valid: false, error: 'Failed to fetch masterlist for validation' }
-    }
+  if (itemsError) {
+    return { valid: false, error: 'Failed to fetch masterlist for validation' }
+  }
 
-    const masterlistMap = new Map(
-      items?.map((item: any) => [item.unique_code, item.quantity]) || []
-    )
+  const masterlistMap = new Map(
+    items?.map((item: any) => [item.unique_code, item.quantity]) || []
+  )
 
-    for (const ammoItem of ammunitionItems) {
-      // If previous_report is null/missing in the import, skip validation for that item
-      if (ammoItem.previous_report === null || ammoItem.previous_report === undefined) continue
+  for (const ammoItem of ammunitionItems) {
+    // If previous_report is null/missing in the import, skip validation for that item
+    if (ammoItem.previous_report === null || ammoItem.previous_report === undefined) continue
 
+    const previousBalance = previousReportId ? previousAmmoMap.get(ammoItem.unique_code) : undefined
+
+    if (previousBalance !== null && previousBalance !== undefined) {
+      if (ammoItem.previous_report !== previousBalance) {
+        return {
+          valid: false,
+          error: `Previous Report is not matched with the Last Balance on Hand for item ${ammoItem.unique_code}. Expected: ${previousBalance}, Got: ${ammoItem.previous_report}`
+        }
+      }
+    } else {
+      // New ammunition item OR first time monthly report, validate against masterlist
       const masterlistQuantity = masterlistMap.get(ammoItem.unique_code)
       if (masterlistQuantity !== null && masterlistQuantity !== undefined) {
         if (ammoItem.previous_report !== masterlistQuantity) {
           return {
             valid: false,
             error: `Previous Report is not matched with the Masterlist Quantity for item ${ammoItem.unique_code}. Expected: ${masterlistQuantity}, Got: ${ammoItem.previous_report}`
-          }
-        }
-      }
-    }
-  } else {
-    // Validate against previous report
-    for (const ammoItem of ammunitionItems) {
-      // If previous_report is null/missing in the import, skip validation for that item
-      if (ammoItem.previous_report === null || ammoItem.previous_report === undefined) continue
-
-      const previousBalance = previousAmmoMap.get(ammoItem.unique_code)
-      if (previousBalance !== null && previousBalance !== undefined) {
-        if (ammoItem.previous_report !== previousBalance) {
-          return {
-            valid: false,
-            error: `Previous Report is not matched with the Last Balance on Hand for item ${ammoItem.unique_code}. Expected: ${previousBalance}, Got: ${ammoItem.previous_report}`
           }
         }
       }
@@ -683,7 +710,7 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (vesselError || !vessel) {
-      return errorResponse(`Vessel with BOW number "${fileInfo.bow_number}" not found`, 404)
+      return errorResponse(`Vessel '${fileInfo.bow_number}' not found. Please ask Admin to register this vessel first.`, 404)
     }
 
     // Validate items against vessel masterlist (vessel_item_assignments)
@@ -693,7 +720,22 @@ Deno.serve(async (req: Request) => {
         item_id,
         items!vessel_item_assignments_item_id_fkey (
           id,
-          unique_code
+          unique_code,
+          classification,
+          nomenclature,
+          brand,
+          model,
+          serial_number,
+          part_number,
+          date_manufactured,
+          date_installed_issued,
+          quantity,
+          equipments!inner (
+            id,
+            unique_code,
+            name,
+            equipment_type
+          )
         )
       `)
       .eq('vessel_id', vessel.id)
@@ -703,22 +745,74 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Failed to fetch vessel masterlist', 500)
     }
 
-    // Create a set of unique_codes from the vessel's masterlist
-    const masterlistUniqueCodes = new Set(
-      vesselAssignments?.map((a: any) => a.items?.unique_code).filter(Boolean) || []
-    )
+    // Build a map of masterlist assignments by unique_code for fast lookup
+    const masterlistMap = new Map<string, any>()
+    vesselAssignments?.forEach((a: any) => {
+      if (a.items?.unique_code) {
+        masterlistMap.set(a.items.unique_code, a.items)
+      }
+    })
 
-    // Check if all items in the import are in the vessel's masterlist
-    const itemsNotInMasterlist: string[] = []
+    // Check if there are any duplicate unique codes in the file
+    const uniqueCodeCounts = new Map<string, number>()
     validItems.forEach(item => {
-      if (!masterlistUniqueCodes.has(item.unique_code)) {
+      uniqueCodeCounts.set(item.unique_code, (uniqueCodeCounts.get(item.unique_code) || 0) + 1)
+    })
+    const duplicateCodes: string[] = []
+    uniqueCodeCounts.forEach((count, code) => {
+      if (count > 1) {
+        duplicateCodes.push(code)
+      }
+    })
+    if (duplicateCodes.length > 0) {
+      return errorResponse(
+        `Import blocked. Duplicate unique codes detected in the file: ${duplicateCodes.join(', ')}`,
+        400
+      )
+    }
+
+    // Check if all items in the import are in the vessel's masterlist or have specification mismatches
+    const itemsNotInMasterlist: string[] = []
+    const itemsMismatched: string[] = []
+
+    validItems.forEach(item => {
+      const masterItem = masterlistMap.get(item.unique_code)
+      if (!masterItem) {
         itemsNotInMasterlist.push(item.unique_code)
+        return
+      }
+
+      const equipType = masterItem.equipments?.equipment_type
+      const isAmmunition = equipType === 'ammunitions' || equipType === 'ammunition'
+
+      let allMatched = true
+      if (!valuesMatch(item.classification, masterItem.classification)) allMatched = false
+      if (!valuesMatch(item.nomenclature, masterItem.nomenclature)) allMatched = false
+
+      if (!isAmmunition) {
+        if (!valuesMatch(item.brand, masterItem.brand)) allMatched = false
+        if (!valuesMatch(item.model, masterItem.model)) allMatched = false
+        if (!valuesMatch(item.serial_number, masterItem.serial_number)) allMatched = false
+        if (!valuesMatch(item.part_number, masterItem.part_number)) allMatched = false
+        if (!datesMatch(item.date_manufactured, masterItem.date_manufactured)) allMatched = false
+        if (!datesMatch(item.date_installed_issued, masterItem.date_installed_issued)) allMatched = false
+      }
+
+      if (!allMatched) {
+        itemsMismatched.push(item.unique_code)
       }
     })
 
     if (itemsNotInMasterlist.length > 0) {
       return errorResponse(
         `Import blocked. The following items are not in the vessel's masterlist: ${itemsNotInMasterlist.slice(0, 10).join(', ')}${itemsNotInMasterlist.length > 10 ? '...' : ''}`,
+        400
+      )
+    }
+
+    if (itemsMismatched.length > 0) {
+      return errorResponse(
+        `Import blocked. The following items have specifications that mismatch the masterlist: ${itemsMismatched.slice(0, 10).join(', ')}${itemsMismatched.length > 10 ? '...' : ''}`,
         400
       )
     }

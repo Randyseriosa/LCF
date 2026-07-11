@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ClipboardList, Upload, FileText, AlertTriangle } from 'lucide-react'
+import { ClipboardList, Upload, FileText, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { BowReportsClient } from './BowReportsClient'
@@ -10,9 +10,10 @@ import { DerangementImportClient } from '@/features/import/components/Derangemen
 import { DerangementItemsClient } from './DerangementItemsClient'
 import { MonthlyReportAttachmentsClient } from './MonthlyReportAttachmentsClient'
 import { ImportMonthlyAttachmentClient } from './ImportMonthlyAttachmentClient'
+import { FileValidationClient } from './FileValidationClient'
 
 type MainTab = 'monthly' | 'derangement'
-type SubTab = 'status' | 'import' | 'derangement' | 'attachments' | 'import-attachment'
+type SubTab = 'status' | 'import' | 'verify' | 'derangement' | 'attachments' | 'import-attachment'
 
 interface MonthlyReportClientProps {
     basePath: string
@@ -43,6 +44,7 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
     const monthlyTabs: { id: SubTab; label: string; icon: React.ElementType }[] = [
         { id: 'status', label: 'Status of Report', icon: ClipboardList },
         ...(showImport ? [{ id: 'import' as SubTab, label: 'Import Report', icon: Upload }] : []),
+        ...(showImport ? [{ id: 'verify' as SubTab, label: 'File Validation', icon: CheckCircle }] : []),
         { id: 'attachments', label: 'Attachments', icon: FileText },
         ...(showImport ? [{ id: 'import-attachment' as SubTab, label: 'Import Attachment', icon: Upload }] : []),
     ]
@@ -127,6 +129,9 @@ export function MonthlyReportClient({ basePath, showImport = false }: MonthlyRep
                             )}
                             {activeMonthlyTab === 'import' && showImport && (
                                 <ImportPageClient mode="monthly" />
+                            )}
+                            {activeMonthlyTab === 'verify' && showImport && (
+                                <FileValidationClient />
                             )}
                             {activeMonthlyTab === 'import-attachment' && showImport && (
                                 <ImportMonthlyAttachmentClient />

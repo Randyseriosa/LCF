@@ -66,3 +66,22 @@ export function isNavigationalGroup(group: EquipmentGroup): boolean {
 export function isAmmunitionsGroup(group: EquipmentGroup): boolean {
     return group === 'AMMUNITIONS'
 }
+
+export function isAmmunitionGroup(
+    equipmentType?: string | null,
+    uniqueCode?: string | null,
+    equipmentName?: string | null
+): boolean {
+    const type = (equipmentType || '').toLowerCase()
+    const code = (uniqueCode || '').toUpperCase()
+    const name = (equipmentName || '').toUpperCase()
+    return (
+        type === 'ammunitions' ||
+        type === 'ammunition' ||
+        code === 'AM' ||
+        code.startsWith('AM') ||
+        name === 'AMMUNITIONS' ||
+        name === 'AMMUNITION'
+    )
+}
+

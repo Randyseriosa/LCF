@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, ArrowRight, Search, ChevronDown, X } from 'lucide-react'
-import { getAuthUser, getAccessToken } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface Vessel {
     id: string
     bow_number: string
     class_of_vessel: string
+    slug?: string
 }
 
 interface AssignedItem {
@@ -47,7 +48,7 @@ export function BowInventoryTransfer() {
         const fetchVessels = async () => {
             const { data } = await supabase
                 .from('vessels')
-                .select('id, bow_number, class_of_vessel')
+                .select('id, bow_number, class_of_vessel, slug')
                 .order('bow_number', { ascending: true })
             if (data) {
                 setVessels(data)
@@ -66,25 +67,27 @@ export function BowInventoryTransfer() {
 
         let mapped: AssignedItem[] = []
 
-        if (vId === 'hq') {
+        const { data: hqVessel } = await supabase
+            .from('vessels')
+            .select('id')
+            .eq('slug', 'hq-inventory')
+            .single()
+
+        const isHqSelected = vId === 'hq' || (hqVessel && vId === hqVessel.id)
+
+        if (isHqSelected) {
             // Fetch items that are NOT assigned to any vessel OR specifically HQ items
             // Based on MasterListTab, HQ items have '-OLCF6-' in their unique code 
             // OR are explicitly assigned to the HQ vessel
-            const { data: hqVessel } = await supabase
-                .from('vessels')
-                .select('id')
-                .eq('slug', 'hq-inventory')
-                .single()
-
             let query = supabase
                 .from('items')
                 .select('id, unique_code, nomenclature, classification')
                 .eq('is_status', 'active')
 
             if (hqVessel) {
-                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)
+                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%OLCF6%`)
             } else {
-                query = query.ilike('unique_code', '%-OLCF6-%')
+                query = query.ilike('unique_code', '%OLCF6%')
             }
 
             const { data } = await query
@@ -164,8 +167,7 @@ export function BowInventoryTransfer() {
             const user = await getAuthUser()
             if (!user) throw new Error('Not authenticated')
 
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-vessel-item-assignment`, {
@@ -214,8 +216,7 @@ export function BowInventoryTransfer() {
             const user = await getAuthUser()
             if (!user) throw new Error('Not authenticated')
 
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-vessel-item-assignment`, {
@@ -235,7 +236,9 @@ export function BowInventoryTransfer() {
             const result = await res.json()
             if (!res.ok) throw new Error(result.error || 'Transfer failed')
 
-            const targetBow = vessels.find(v => v.id === targetVesselId)?.bow_number || 'Recipient'
+            const targetV = vessels.find(v => v.id === targetVesselId)
+            const isTargetHq = targetV?.slug === 'hq-inventory' || targetV?.bow_number === 'OLCF6'
+            const targetBow = isTargetHq ? 'OLCF6/HQ Inventory' : (targetV?.bow_number || 'Recipient')
             const count = result.data?.transferred || 0
 
             setSuccessMsg(`Successfully transferred ${count} item/s to ${targetBow}`)
@@ -258,6 +261,14 @@ export function BowInventoryTransfer() {
         }
     }
 
+    const vesselOptions = vessels.map(v => {
+        const isHq = v.slug === 'hq-inventory' || v.bow_number === 'OLCF6'
+        return {
+            value: v.id,
+            label: isHq ? 'OLCF6/HQ Inventory' : (v.bow_number || 'Unnamed')
+        }
+    })
+
     return (
         <div className="flex flex-col md:flex-row gap-6 w-full items-start">
             {/* LEFT COLUMN: Source */}
@@ -267,10 +278,7 @@ export function BowInventoryTransfer() {
                     value={sourceVesselId}
                     onChange={(val) => setSourceVesselId(val)}
                     placeholder="-- Select Source --"
-                    options={[
-                        { value: 'hq', label: 'HQ INVENTORY' },
-                        ...vessels.map(v => ({ value: v.id, label: v.bow_number || 'Unnamed' }))
-                    ]}
+                    options={vesselOptions}
                     className="mb-4"
                 />
 
@@ -443,7 +451,7 @@ export function BowInventoryTransfer() {
                     value={targetVesselId}
                     onChange={(val) => setTargetVesselId(val)}
                     placeholder="-- Select Recipient --"
-                    options={vessels.map(v => ({ value: v.id, label: v.bow_number || 'Unnamed' }))}
+                    options={vesselOptions}
                     className="mb-4"
                 />
 

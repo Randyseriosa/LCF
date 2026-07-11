@@ -15,6 +15,7 @@ export default function AdminUsersPage() {
     const [toast, setToast] = useState<Toast | null>(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [creating, setCreating] = useState(false)
+    const [modalError, setModalError] = useState<string | null>(null)
 
     const [newUser, setNewUser] = useState({
         username: '',
@@ -31,17 +32,18 @@ export default function AdminUsersPage() {
 
     async function handleCreateUser() {
         if (!newUser.username || !newUser.password) {
-            showToast('Username and password are required', 'error')
+            setModalError('Username and password are required')
             return
         }
 
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
         if (!passwordRegex.test(newUser.password)) {
-            showToast('Password must be at least 8 characters with uppercase, lowercase, and a number', 'error')
+            setModalError('Password must be at least 8 characters with uppercase, lowercase, and a number')
             return
         }
 
         setCreating(true)
+        setModalError(null)
         try {
             await createUser({
                 username: newUser.username,
@@ -53,10 +55,11 @@ export default function AdminUsersPage() {
             showToast(`User "${newUser.username}" created successfully`, 'success')
             setShowCreateModal(false)
             setNewUser({ username: '', password: '', name: '', role: 'viewer', is_active: 'inactive' })
+            setModalError(null)
             await refetch()
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Unknown error'
-            showToast(`Failed to create user: ${msg}`, 'error')
+            setModalError(msg)
         } finally {
             setCreating(false)
         }
@@ -118,7 +121,10 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => {
+                            setModalError(null)
+                            setShowCreateModal(true)
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-secondary-hover text-white transition-colors text-xs font-bold shadow-card border border-accent/50"
                     >
                         <Plus className="w-4 h-4" />
@@ -302,7 +308,10 @@ export default function AdminUsersPage() {
                         <div className="flex items-center justify-between px-4 py-5 border-b border-foreground/10">
                             <h2 className="text-lg font-semibold text-foreground">Create New User</h2>
                             <button
-                                onClick={() => setShowCreateModal(false)}
+                                onClick={() => {
+                                    setShowCreateModal(false)
+                                    setModalError(null)
+                                }}
                                 className="text-foreground-muted hover:text-foreground transition-colors"
                             >
                                 <X className="w-5 h-5" />
@@ -310,6 +319,12 @@ export default function AdminUsersPage() {
                         </div>
 
                         <div className="p-3 space-y-4">
+                            {modalError && (
+                                <div className="text-sm text-error bg-error-bg p-3 border border-error/30 flex items-center gap-2 font-medium">
+                                    <XCircle className="w-4 h-4 shrink-0" />
+                                    <span>{modalError}</span>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-medium text-foreground mb-1.5">Username</label>
                                 <input
@@ -376,7 +391,10 @@ export default function AdminUsersPage() {
 
                         <div className="flex items-center gap-3 px-4 py-4 border-t border-foreground/10">
                             <button
-                                onClick={() => setShowCreateModal(false)}
+                                onClick={() => {
+                                    setShowCreateModal(false)
+                                    setModalError(null)
+                                }}
                                 disabled={creating}
                                 className="flex-1 px-4 py-2.5 border border-foreground/10 text-foreground hover:bg-foreground/5 transition-colors text-sm font-medium disabled:opacity-50"
                             >

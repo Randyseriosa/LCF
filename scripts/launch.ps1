@@ -22,9 +22,42 @@ Write-Host "[PHASE 0] Checking Docker Desktop..." -ForegroundColor Cyan
 $dockerProcess = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
 if (-not $dockerProcess) {
     Write-Host "  Docker Desktop is not running. Starting Docker..." -ForegroundColor Yellow
-    $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    if (Test-Path $dockerPath) {
-        Start-Process $dockerPath
+    $dockerPaths = @(
+        "C:\Users\HP\AppData\Roaming\Microsoft\Windows\Start Menu\Docker Desktop.lnk",
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Docker Desktop.lnk",
+        "C:\Program Files\Docker\Docker\Docker Desktop.exe",
+        "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Docker Desktop.lnk",
+        "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Docker Desktop.lnk"
+    )
+
+    $foundPath = $null
+    foreach ($path in $dockerPaths) {
+        if (Test-Path $path) {
+            $foundPath = $path
+            break
+        }
+    }
+
+    if ($foundPath) {
+        Write-Host "  Found Docker Desktop at: $foundPath" -ForegroundColor DarkGray
+        
+        $targetPath = $foundPath
+        if ($foundPath -like "*.lnk") {
+            try {
+                $sh = New-Object -ComObject WScript.Shell
+                $resolved = $sh.CreateShortcut($foundPath).TargetPath
+                if ($resolved -and (Test-Path $resolved)) {
+                    Write-Host "  Resolved shortcut target: $resolved" -ForegroundColor DarkGray
+                    $targetPath = $resolved
+                }
+            }
+            catch {
+                # Fallback to starting shortcut itself if resolving fails
+            }
+        }
+
+        Start-Process $targetPath
         Write-Host "  Waiting for Docker engine to initialize..." -ForegroundColor Yellow
 
         # Wait for Docker daemon to become responsive (up to 120 seconds)
@@ -35,7 +68,7 @@ if (-not $dockerProcess) {
             Start-Sleep -Seconds 3
             $elapsed += 3
             try {
-                $dockerInfo = docker info 2>&1
+                $null = docker info 2>&1
                 if ($LASTEXITCODE -eq 0) {
                     $dockerReady = $true
                 }
@@ -57,7 +90,7 @@ if (-not $dockerProcess) {
         }
     }
     else {
-        Write-Host "  Docker Desktop executable not found at standard path." -ForegroundColor Red
+        Write-Host "  Docker Desktop executable or shortcut not found at standard or client paths." -ForegroundColor Red
         Write-Host "  Please start Docker manually and re-run this script." -ForegroundColor Red
         Read-Host "Press Enter to exit"
         exit 1
@@ -71,7 +104,7 @@ else {
     $elapsed = 0
     while (-not $dockerReady -and $elapsed -lt $maxWait) {
         try {
-            $dockerInfo = docker info 2>&1
+            $null = docker info 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $dockerReady = $true
             }
@@ -106,19 +139,19 @@ $stalePort3000 = @()
 $netstatLines = netstat -ano 2>$null | Select-String "LISTENING" | Select-String ":3000 "
 foreach ($line in $netstatLines) {
     $parts = ($line -split '\s+')
-    $pid = $parts[-1]
-    if ($pid -and $pid -ne "0" -and $stalePort3000 -notcontains $pid) {
-        $stalePort3000 += $pid
+    $targetPid = $parts[-1]
+    if ($targetPid -and $targetPid -ne "0" -and $stalePort3000 -notcontains $targetPid) {
+        $stalePort3000 += $targetPid
     }
 }
 
 if ($stalePort3000.Count -gt 0) {
-    foreach ($pid in $stalePort3000) {
+    foreach ($targetPid in $stalePort3000) {
         try {
-            $proc = Get-Process -Id ([int]$pid) -ErrorAction SilentlyContinue
+            $proc = Get-Process -Id ([int]$targetPid) -ErrorAction SilentlyContinue
             if ($proc) {
-                Write-Host ("  Terminating stale process on port 3000: {0} (PID {1})" -f $proc.ProcessName, $pid) -ForegroundColor Yellow
-                Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+                Write-Host ("  Terminating stale process on port 3000: {0} (PID {1})" -f $proc.ProcessName, $targetPid) -ForegroundColor Yellow
+                Stop-Process -Id ([int]$targetPid) -Force -ErrorAction SilentlyContinue
             }
         }
         catch {

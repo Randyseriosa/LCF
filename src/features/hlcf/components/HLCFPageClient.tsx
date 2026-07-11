@@ -12,6 +12,7 @@ import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Package } from 'lucide-react'
 import { ROLES, type Role } from '@/lib/types/roles'
+import { getValidAccessToken } from '@/lib/auth'
 
 type HLCFTab = 'hq' | 'masterlist' | 'reports'
 const VALID_TABS: HLCFTab[] = ['hq', 'masterlist', 'reports']
@@ -80,8 +81,7 @@ export function HLCFPageClient({ basePath, role }: { basePath: string; role?: Ro
 
         setIsClearingReport(true)
         try {
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-monthly-report`, {

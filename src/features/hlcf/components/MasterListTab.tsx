@@ -4,9 +4,11 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ImportItemsModal, type ParsedFileInfo } from '@/features/equipment/components/ImportItemsModal'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { getValidAccessToken } from '@/lib/auth'
 import { Inbox, Plus } from 'lucide-react'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
 import { ROLES, type Role } from '@/lib/types/roles'
+import { isAmmunitionGroup } from '@/features/equipment/utils/equipmentGroup'
 
 interface Item {
     id: string
@@ -25,6 +27,7 @@ interface Item {
     equipments?: {
         name: string
         unique_code: string
+        equipment_type: string
     }
 }
 
@@ -53,13 +56,13 @@ export function MasterListTab({ role }: { role?: Role }) {
             // 2. Fetch active items - either explicitly assigned to HQ or have OLCF6 in code
             let query = supabase
                 .from('items')
-                .select('*, equipments(name, unique_code)')
+                .select('*, equipments(name, unique_code, equipment_type)')
                 .eq('is_status', 'active')
 
             if (hqVessel) {
-                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%-OLCF6-%`)
+                query = query.or(`vessel_id.eq.${hqVessel.id},unique_code.ilike.%OLCF6%`)
             } else {
-                query = query.ilike('unique_code', '%-OLCF6-%')
+                query = query.ilike('unique_code', '%OLCF6%')
             }
 
             const { data, error: fetchError } = await query.order('unique_code', { ascending: true })
@@ -80,8 +83,7 @@ export function MasterListTab({ role }: { role?: Role }) {
 
         setIsClearing(true)
         try {
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-all-items`, {
@@ -165,7 +167,8 @@ export function MasterListTab({ role }: { role?: Role }) {
                             return Object.entries(groupedItems).map(([equipName, groupItems]) => {
                                 const firstItem = groupItems[0]
                                 const equipCode = firstItem?.equipments?.unique_code || ''
-                                const isAmmunition = equipName === 'AMMUNITIONS' || equipCode === 'AM'
+                                const equipType = firstItem?.equipments?.equipment_type || ''
+                                const isAmmunition = isAmmunitionGroup(equipType, equipCode, equipName)
 
                                 return (
                                     <div key={equipName} className="border border-foreground/10 overflow-hidden">

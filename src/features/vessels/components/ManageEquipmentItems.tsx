@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import { useVesselItemAssignments, type ItemWithAssignment } from '@/features/vessels/hooks/useVesselItemAssignments'
 import { Loader2 } from 'lucide-react'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
@@ -117,8 +117,7 @@ export function ManageEquipmentItems({ vesselId, equipmentId, equipmentName, onB
             const user = await getAuthUser()
             if (!user) throw new Error('Not authenticated')
 
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const response = await fetch(

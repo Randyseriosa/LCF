@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
     let message = 'All items and assignments cleared successfully'
 
     if (filter === 'hq') {
-      const hqPattern = '%-OLCF6-%'
+      const hqPattern = '%OLCF6%'
 
       // 1. Get HQ Vessel ID
       const { data: hqVessel } = await supabaseAdmin

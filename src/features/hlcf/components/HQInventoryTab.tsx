@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Inbox, FileSpreadsheet } from 'lucide-react'
 import { formatDateToDDMMYYYY } from '@/utils/dateUtils'
+import { isAmmunitionGroup } from '@/features/equipment/utils/equipmentGroup'
 
 interface ReportItem {
     id: string
@@ -26,6 +27,7 @@ interface ReportItem {
     remarks: string
     equipment_name?: string
     equipment_code?: string
+    equipment_type?: string
 }
 
 interface HQInventoryTabProps {
@@ -96,7 +98,8 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                     items (
                         equipments (
                             name,
-                            unique_code
+                            unique_code,
+                            equipment_type
                         )
                     )
                 `)
@@ -125,7 +128,8 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                 status: ri.status,
                 remarks: ri.remarks,
                 equipment_name: ri.items?.equipments?.name || 'Uncategorized',
-                equipment_code: ri.items?.equipments?.unique_code
+                equipment_code: ri.items?.equipments?.unique_code,
+                equipment_type: ri.items?.equipments?.equipment_type
             }))
 
             setItems(mappedItems)
@@ -180,7 +184,8 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
         <div className="flex flex-col space-y-6">
             {Object.entries(groupedItems).map(([equipName, groupItems]) => {
                 const equipCode = groupItems[0]?.equipment_code
-                const isAmmunition = equipName === 'AMMUNITIONS' || equipCode === 'AM'
+                const equipType = groupItems[0]?.equipment_type
+                const isAmmunition = isAmmunitionGroup(equipType, equipCode, equipName)
 
                 return (
                     <div key={equipName} className="border border-foreground/10 overflow-hidden shadow-sm">
@@ -220,7 +225,9 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                                                 <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Status</th>
                                             </>
                                         )}
-                                        <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Remarks</th>
+                                        {!isAmmunition && (
+                                            <th className="px-4 py-3 text-[10px] font-bold text-foreground-muted uppercase tracking-widest whitespace-nowrap">Remarks</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-foreground/5">
@@ -256,7 +263,9 @@ export function HQInventoryTab({ month, year }: HQInventoryTabProps) {
                                                     </td>
                                                 </>
                                             )}
-                                            <td className="px-4 py-3 text-[11px] text-foreground-muted italic max-w-[200px] truncate">{item.remarks || '-'}</td>
+                                            {!isAmmunition && (
+                                                <td className="px-4 py-3 text-[11px] text-foreground-muted italic max-w-[200px] truncate">{item.remarks || '-'}</td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>

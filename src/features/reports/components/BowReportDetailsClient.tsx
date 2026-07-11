@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useMonthlyReportItems, type MonthlyReportItem } from '@/hooks/useMonthlyReportItems'
 import { useEquipments, type Equipment } from '@/features/equipment/hooks/useEquipments'
-import { getCategoryFromEquipmentType, isAmmunitionsGroup } from '@/features/equipment/utils/equipmentGroup'
+import { getCategoryFromEquipmentType, isAmmunitionsGroup, isAmmunitionGroup } from '@/features/equipment/utils/equipmentGroup'
 import { ArrowLeft, AlertCircle, Package } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -113,8 +113,7 @@ export function BowReportDetailsClient({
   const isEquipmentAmmunition = (equipmentCode: string): boolean => {
     const equipment = equipmentMap[equipmentCode]
     if (!equipment) return false
-    const equipmentType = equipment.equipment_type?.toLowerCase() || ''
-    return equipmentType.includes('ammunition') || equipmentType.includes('ammo') || equipmentType === 'am'
+    return isAmmunitionGroup(equipment.equipment_type, equipment.unique_code, equipment.name)
   }
 
   const monthName = MONTHS[currentMonth]

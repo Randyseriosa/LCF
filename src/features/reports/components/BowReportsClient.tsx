@@ -8,6 +8,7 @@ import { Filter, CheckCircle, XCircle, ChevronDown, ChevronRight, Trash2, AlertT
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { getValidAccessToken } from '@/lib/auth'
 
 
 const MONTHS = [
@@ -95,8 +96,7 @@ export function BowReportsClient({ basePath, showImport = false }: BowReportsCli
     const handleClearReports = async () => {
         setIsClearing(true)
         try {
-            const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-            const token = match ? decodeURIComponent(match[1]) : null
+            const token = await getValidAccessToken()
             if (!token) throw new Error('Not authenticated')
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-monthly-report`, {

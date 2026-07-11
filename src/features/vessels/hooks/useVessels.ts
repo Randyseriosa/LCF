@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 
 export interface ClassOfVessel {
     id: string
@@ -63,8 +63,7 @@ export function useVessels() {
         const user = await getAuthUser()
         if (!user) throw new Error('Not authenticated')
 
-        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-        const token = match ? decodeURIComponent(match[1]) : null
+        const token = await getValidAccessToken()
         if (!token) throw new Error('Not authenticated')
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-class-of-vessel`, {
@@ -87,8 +86,7 @@ export function useVessels() {
         const user = await getAuthUser()
         if (!user) throw new Error('Not authenticated')
 
-        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-        const token = match ? decodeURIComponent(match[1]) : null
+        const token = await getValidAccessToken()
         if (!token) throw new Error('Not authenticated')
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-class-of-vessel`, {
@@ -111,8 +109,7 @@ export function useVessels() {
         const user = await getAuthUser()
         if (!user) throw new Error('Not authenticated')
 
-        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-        const token = match ? decodeURIComponent(match[1]) : null
+        const token = await getValidAccessToken()
         if (!token) throw new Error('Not authenticated')
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-vessel`, {

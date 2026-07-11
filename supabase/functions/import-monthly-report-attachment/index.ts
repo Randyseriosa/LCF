@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
                 .single()
 
             if (!vesselFallback) {
-                return errorResponse(`Vessel with Bow Number "${bowNumber}" not found`, 404)
+                return errorResponse(`Vessel '${bowNumber}' not found. Please ask Admin to register this vessel first.`, 404)
             }
             vessel.id = vesselFallback.id
             vessel.bow_number = vesselFallback.bow_number

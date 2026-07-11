@@ -85,7 +85,7 @@ export function EquipmentManagementPageClient({ slug, role }: { slug: string; ro
         const pathSegments = pathname.split('/')
         pathSegments.pop()
         const equipmentPath = pathSegments.join('/')
-        
+
         if (equipmentId) {
             router.push(`${equipmentPath}?equipmentId=${equipmentId}`)
         } else {
@@ -98,7 +98,7 @@ export function EquipmentManagementPageClient({ slug, role }: { slug: string; ro
         const pathSegments = pathname.split('/')
         pathSegments.pop()
         const equipmentPath = pathSegments.join('/')
-        
+
         if (equipmentId) {
             router.push(`${equipmentPath}?equipmentId=${equipmentId}`)
         } else {
@@ -126,7 +126,7 @@ export function EquipmentManagementPageClient({ slug, role }: { slug: string; ro
         return (
             <div className="p-4">
                 <div className=" bg-surface border border-foreground/10 p-3 text-center shadow-card">
-                    <p className="text-foreground-muted text-sm">Vessel not found</p>
+                    <p className="text-foreground-muted text-sm">Vessel '{slug}' not found. Please ask Admin to register this vessel first.</p>
                     <button
                         onClick={handleCancel}
                         className="mt-4 px-4 py-2.5 bg-accent text-white text-xs font-bold uppercase tracking-widest hover:bg-secondary-hover transition-colors"

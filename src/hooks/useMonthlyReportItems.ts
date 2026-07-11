@@ -56,7 +56,7 @@ export function useMonthlyReportItems({
         .maybeSingle()
 
       if (vesselError || !vessel) {
-        setError('Vessel not found')
+        setError(`Vessel '${bowNumber}' not found. Please ask Admin to register this vessel first.`)
         setLoading(false)
         return
       }

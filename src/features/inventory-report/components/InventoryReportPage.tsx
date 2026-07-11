@@ -68,7 +68,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
             className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition-all border bg-white text-primary border-primary hover:bg-primary hover:text-white"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
-            Export Excel
+            Export Data
           </button>
         }
       />

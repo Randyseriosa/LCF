@@ -55,19 +55,77 @@ export function getAccessToken(): string | null {
     return match ? decodeURIComponent(match[1]) : null
 }
 
-// Get auth user from JWT
-export async function getAuthUser(): Promise<AuthUser | null> {
+function isTokenExpired(token: string): boolean {
+    try {
+        const parts = token.split('.')
+        if (parts.length !== 3) return true
+        const body = parts[1]
+        const base64 = body.replace(/-/g, '+').replace(/_/g, '/')
+        const payload = JSON.parse(atob(base64))
+        const now = Math.floor(Date.now() / 1000)
+        // If token expires in less than 30 seconds (or is already expired), treat it as expired
+        return payload.exp - 30 < now
+    } catch {
+        return true
+    }
+}
+
+let activeRefreshPromise: Promise<string | null> | null = null
+
+// Get valid access token from cookie, refreshing if expired
+export async function getValidAccessToken(): Promise<string | null> {
     const token = getAccessToken()
     if (!token) return null
 
-    const payload = await verifyJWTToken(token)
-    if (!payload) return null
+    if (isTokenExpired(token)) {
+        if (activeRefreshPromise) {
+            return activeRefreshPromise
+        }
 
-    return {
-        id: payload.user_id,
-        username: payload.username,
-        role: payload.role,
-        is_active: payload.is_active,
+        activeRefreshPromise = (async () => {
+            try {
+                const res = await fetch('/api/auth/refresh', { method: 'POST' })
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data.access_token) {
+                        return data.access_token
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to refresh token client side:', e)
+            } finally {
+                activeRefreshPromise = null
+            }
+            return null
+        })()
+
+        return activeRefreshPromise
+    }
+
+    return token
+}
+
+// Get auth user from JWT, automatically refreshing token if expired
+export async function getAuthUser(): Promise<AuthUser | null> {
+    const token = await getValidAccessToken()
+    if (!token) return null
+
+    // Decode and read payload (signature was verified on server / will be verified by APIs)
+    try {
+        const parts = token.split('.')
+        if (parts.length !== 3) return null
+        const body = parts[1]
+        const base64 = body.replace(/-/g, '+').replace(/_/g, '/')
+        const payload = JSON.parse(atob(base64))
+
+        return {
+            id: payload.user_id,
+            username: payload.username,
+            role: payload.role,
+            is_active: payload.is_active,
+        }
+    } catch {
+        return null
     }
 }
 

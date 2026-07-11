@@ -49,16 +49,16 @@ async function getPreviousReport(
   const currentDate = new Date(currentReportMonth)
   const previousMonthDate = new Date(currentDate)
   previousMonthDate.setMonth(previousMonthDate.getMonth() - 1)
-  
+
   const previousMonthStr = previousMonthDate.toISOString().slice(0, 7) + '-01'
-  
+
   const { data: previousReport } = await supabaseAdmin
     .from('monthly_reports')
     .select('id')
     .eq('vessel_id', vesselId)
     .eq('report_month', previousMonthStr)
     .single()
-  
+
   return previousReport?.id || null
 }
 
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get('Authorization')
     const authResult = await authenticateUser(authHeader)
-    
+
     if (authResult.error) {
       return errorResponse(authResult.error, authResult.status)
     }
@@ -138,98 +138,54 @@ Deno.serve(async (req: Request) => {
       return successResponse({ message: 'No items to sync check', updated: 0 })
     }
 
-    // Check if there's a previous report
-    const previousReportId = await getPreviousReport(
-      supabaseAdmin,
-      currentReport.vessel_id,
-      currentReport.report_month
-    )
-
     const updates: { id: string; sync_status: string }[] = []
+
+    // Fetch masterlist details in bulk for items present in this report
+    const uniqueCodes = reportItems.map((item: any) => item.unique_code)
+    const { data: masterItems } = await supabaseAdmin
+      .from('items')
+      .select(`
+        unique_code,
+        classification,
+        nomenclature,
+        brand,
+        model,
+        serial_number,
+        part_number,
+        date_manufactured,
+        date_installed_issued
+      `)
+      .in('unique_code', uniqueCodes)
+
+    const masterlistMap = new Map<string, any>()
+    masterItems?.forEach((item: any) => {
+      masterlistMap.set(item.unique_code, item)
+    })
 
     for (const reportItem of reportItems) {
       const equipmentType = reportItem.items?.equipments?.equipment_type
-      const isAmmunition = equipmentType === 'ammunitions'
+      const isAmmunition = equipmentType === 'ammunitions' || equipmentType === 'ammunition'
 
       let allMatched = true
+      const masterItem = masterlistMap.get(reportItem.unique_code)
 
-      if (previousReportId) {
-        // Compare with previous report
-        const { data: previousItem } = await supabaseAdmin
-          .from('monthly_report_items')
-          .select(`
-            classification,
-            nomenclature,
-            brand,
-            model,
-            serial_number,
-            part_number,
-            date_manufactured,
-            date_installed_issued
-          `)
-          .eq('report_id', previousReportId)
-          .eq('unique_code', reportItem.unique_code)
-          .single()
+      if (masterItem) {
+        // Compare classification and nomenclature
+        if (!valuesMatch(reportItem.classification, masterItem.classification)) allMatched = false
+        if (!valuesMatch(reportItem.nomenclature, masterItem.nomenclature)) allMatched = false
 
-        if (previousItem) {
-          // Check relevant columns based on equipment type
-          if (isAmmunition) {
-            // For ammunition, only check these 3 columns
-            if (!valuesMatch(reportItem.classification, previousItem.classification)) allMatched = false
-            if (!valuesMatch(reportItem.nomenclature, previousItem.nomenclature)) allMatched = false
-          } else {
-            // For regular items, check all static columns
-            if (!valuesMatch(reportItem.classification, previousItem.classification)) allMatched = false
-            if (!valuesMatch(reportItem.nomenclature, previousItem.nomenclature)) allMatched = false
-            if (!valuesMatch(reportItem.brand, previousItem.brand)) allMatched = false
-            if (!valuesMatch(reportItem.model, previousItem.model)) allMatched = false
-            if (!valuesMatch(reportItem.serial_number, previousItem.serial_number)) allMatched = false
-            if (!valuesMatch(reportItem.part_number, previousItem.part_number)) allMatched = false
-            if (!valuesMatch(reportItem.date_manufactured, previousItem.date_manufactured)) allMatched = false
-            if (!valuesMatch(reportItem.date_installed_issued, previousItem.date_installed_issued)) allMatched = false
-          }
-        } else {
-          // Item not in previous report, check against masterlist
-          allMatched = false
+        if (!isAmmunition) {
+          // For regular items, check all static columns
+          if (!valuesMatch(reportItem.brand, masterItem.brand)) allMatched = false
+          if (!valuesMatch(reportItem.model, masterItem.model)) allMatched = false
+          if (!valuesMatch(reportItem.serial_number, masterItem.serial_number)) allMatched = false
+          if (!valuesMatch(reportItem.part_number, masterItem.part_number)) allMatched = false
+          if (!valuesMatch(reportItem.date_manufactured, masterItem.date_manufactured)) allMatched = false
+          if (!valuesMatch(reportItem.date_installed_issued, masterItem.date_installed_issued)) allMatched = false
         }
       } else {
-        // No previous report, compare with masterlist (items table)
-        const { data: masterItem } = await supabaseAdmin
-          .from('items')
-          .select(`
-            classification,
-            nomenclature,
-            brand,
-            model,
-            serial_number,
-            part_number,
-            date_manufactured,
-            date_installed_issued
-          `)
-          .eq('unique_code', reportItem.unique_code)
-          .single()
-
-        if (masterItem) {
-          // Check relevant columns based on equipment type
-          if (isAmmunition) {
-            // For ammunition, only check these 3 columns
-            if (!valuesMatch(reportItem.classification, masterItem.classification)) allMatched = false
-            if (!valuesMatch(reportItem.nomenclature, masterItem.nomenclature)) allMatched = false
-          } else {
-            // For regular items, check all static columns
-            if (!valuesMatch(reportItem.classification, masterItem.classification)) allMatched = false
-            if (!valuesMatch(reportItem.nomenclature, masterItem.nomenclature)) allMatched = false
-            if (!valuesMatch(reportItem.brand, masterItem.brand)) allMatched = false
-            if (!valuesMatch(reportItem.model, masterItem.model)) allMatched = false
-            if (!valuesMatch(reportItem.serial_number, masterItem.serial_number)) allMatched = false
-            if (!valuesMatch(reportItem.part_number, masterItem.part_number)) allMatched = false
-            if (!valuesMatch(reportItem.date_manufactured, masterItem.date_manufactured)) allMatched = false
-            if (!valuesMatch(reportItem.date_installed_issued, masterItem.date_installed_issued)) allMatched = false
-          }
-        } else {
-          // Item not in masterlist
-          allMatched = false
-        }
+        // Item not in masterlist
+        allMatched = false
       }
 
       updates.push({

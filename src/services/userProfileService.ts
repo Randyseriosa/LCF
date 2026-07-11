@@ -1,14 +1,8 @@
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import type { Role, UserStatus } from '@/lib/types/roles'
 
-function getToken(): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-    return match ? decodeURIComponent(match[1]) : null
-}
-
 async function callEdgeFunction(fnName: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const token = getToken()
+    const token = await getValidAccessToken()
     if (!token) throw new Error('Not authenticated')
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${fnName}`, {

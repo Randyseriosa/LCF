@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Upload, FileSpreadsheet, FileText, Check, AlertCircle, Calendar, Inbox, Eye, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { createClient } from '@/lib/supabase/client'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, getValidAccessToken } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 import { useMonthlyReportStatus } from '@/hooks/useMonthlyReportStatus'
 import { useRecentImports } from '@/hooks/useRecentImports'
@@ -46,6 +46,28 @@ interface MonthlyReportItem {
   balance_on_hand?: number | null
   section?: string // Track which section the item came from
   syncStatus?: 'sync' | 'not_on_masterlist' | 'mismatched' | 'internal_duplicate'
+}
+
+const formatPreviewDate = (dateVal: any) => {
+  if (!dateVal) return '-'
+  if (dateVal instanceof Date) {
+    const day = String(dateVal.getDate()).padStart(2, '0')
+    const month = String(dateVal.getMonth() + 1).padStart(2, '0')
+    const year = dateVal.getFullYear()
+    return `${day}-${month}-${year}`
+  }
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('-')) {
+      const parts = dateVal.split('T')[0].split('-')
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          return `${parts[2]}-${parts[1]}-${parts[0]}`
+        }
+        return dateVal
+      }
+    }
+  }
+  return String(dateVal)
 }
 
 interface Equipment {
@@ -239,6 +261,51 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
     return Object.keys(equipments).sort((a, b) => b.length - a.length)
   }, [equipments])
 
+  const isAmmunitionItem = useCallback((item: MonthlyReportItem) => {
+    if (item.section === 'ammunitions' || item.section === 'ammunition') return true
+
+    // Check if unique code matches any equipment prefixed that is ammunition
+    let matchedEquipmentCode: string | null = null
+    for (const equipCode of sortedEquipmentCodes) {
+      if (item.unique_code.startsWith(equipCode)) {
+        matchedEquipmentCode = equipCode
+        break
+      }
+    }
+    if (matchedEquipmentCode) {
+      const equip = equipments[matchedEquipmentCode]
+      return equip?.equipment_type === 'ammunitions' || equip?.equipment_type === 'ammunition'
+    }
+    return false
+  }, [equipments, sortedEquipmentCodes])
+
+  const { mismatchedStandard, mismatchedAmmunition } = useMemo(() => {
+    if (!syncCheckResults?.mismatched) {
+      return { mismatchedStandard: [], mismatchedAmmunition: [] }
+    }
+    const standard: MonthlyReportItem[] = []
+    const ammo: MonthlyReportItem[] = []
+    syncCheckResults.mismatched.forEach(item => {
+      if (isAmmunitionItem(item)) {
+        ammo.push(item)
+      } else {
+        standard.push(item)
+      }
+    })
+    return { mismatchedStandard: standard, mismatchedAmmunition: ammo }
+  }, [syncCheckResults?.mismatched, isAmmunitionItem])
+
+  const prefixBase = fileInfo?.bow_number || ''
+  const mismatchedFilenameItems = useMemo(() => {
+    if (mode !== 'monthly' || !previewData || previewData.length === 0 || !prefixBase) return []
+    return previewData.filter(item =>
+      item.unique_code &&
+      !item.unique_code.toLowerCase().includes(prefixBase.toLowerCase())
+    )
+  }, [previewData, prefixBase, mode])
+
+  const hasMismatchedUniqueCode = mismatchedFilenameItems.length > 0
+
   // Fetch equipment data on component mount
   useEffect(() => {
     fetchEquipments()
@@ -348,7 +415,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       if (vesselError || !vessel) {
         setVesselId(null)
         setSyncCheckResults({ sync: [], notOnMasterlist: items, mismatched: [], internalDuplicates: [], missedItems: [], vesselId: null })
-        setError(`Vessel "${bowNumber}" not found.`)
+        setError(`Vessel '${bowNumber}' not found. Please ask Admin to register this vessel first.`)
         return
       }
 
@@ -658,7 +725,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
   }
 
   const parseFilename = (filename: string): ParsedFileInfo | null => {
-    const regex = mode === 'monthly' ? /^([A-Z0-9]+)-(\d{2})(\d{4})\.(xlsx|xls)$/ : /^([A-Z0-9]+)-(\d{2})(\d{4})\.pdf$/i
+    const regex = mode === 'monthly' ? /^([A-Z0-9-]+)-(\d{2})(\d{4})\.(xlsx|xls)$/i : /^([A-Z0-9-]+)-(\d{2})(\d{4})\.pdf$/i
     const match = filename.match(regex)
     if (!match) return null
 
@@ -812,6 +879,12 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
       return
     }
 
+    // Block import if there are mismatched unique codes
+    if (mode === 'monthly' && hasMismatchedUniqueCode) {
+      setError(`Cannot import: Mismatched unique codes detected in the file. All unique codes must match the filename reference '${prefixBase}'.`)
+      return
+    }
+
     // Check if report month is in the future (only for monthly mode)
     if (mode === 'monthly' && fileInfo) {
       const now = new Date()
@@ -845,8 +918,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
         const user = await getAuthUser()
         if (!user) throw new Error('Not authenticated')
 
-        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/)
-        const token = match ? decodeURIComponent(match[1]) : null
+        const token = await getValidAccessToken()
         if (!token) throw new Error('Not authenticated')
 
         // Convert file to base64 using chunked approach to avoid call stack overflow on large files
@@ -1097,13 +1169,30 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
             </div>
           </div>
 
-          {(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0) && (
+          {(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0 || syncCheckResults.mismatched.length > 0 || hasMismatchedUniqueCode) && (
             <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-error bg-error-bg p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>
-                  Import blocked. Please fix the report discrepancies ({syncCheckResults.notOnMasterlist.length} not on masterlist, {syncCheckResults.missedItems.length} missed items, {syncCheckResults.internalDuplicates.length} duplicates) before importing.
-                </span>
+              <div className="flex items-start gap-2 text-sm text-error bg-error-bg p-3">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-bold">Import blocked. Please fix the report discrepancies before importing:</span>
+                  <ul className="list-disc pl-5 mt-1.5 space-y-1 text-xs">
+                    {mismatchedFilenameItems.length > 0 && (
+                      <li>{mismatchedFilenameItems.length} unique code(s) do not match the filename reference prefix '{prefixBase}'.</li>
+                    )}
+                    {syncCheckResults.notOnMasterlist.length > 0 && (
+                      <li>{syncCheckResults.notOnMasterlist.length} item(s) not on the masterlist.</li>
+                    )}
+                    {syncCheckResults.missedItems.length > 0 && (
+                      <li>{syncCheckResults.missedItems.length} item(s) missing from the report compared to the masterlist.</li>
+                    )}
+                    {syncCheckResults.internalDuplicates.length > 0 && (
+                      <li>{syncCheckResults.internalDuplicates.length} duplicate unique code(s) detected in the file.</li>
+                    )}
+                    {syncCheckResults.mismatched.length > 0 && (
+                      <li>{syncCheckResults.mismatched.length} item(s) with mismatched specifications.</li>
+                    )}
+                  </ul>
+                </div>
               </div>
 
               <div className="bg-surface border border-foreground/10 p-4 shadow-card space-y-4">
@@ -1113,6 +1202,41 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                     Discrepancy Overview
                   </h4>
                 </div>
+
+                {mismatchedFilenameItems.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-[#000080] flex items-center gap-1.5">
+                        <span>⚠ Unique Codes Mismatched with Filename ({prefixBase})</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {mismatchedFilenameItems.length} Mismatched
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-[#E6E6FA] text-[#000033] border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest">Classification</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest">Section</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {mismatchedFilenameItems.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 font-mono font-black text-red-500 text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.section || 'Uncategorized'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {syncCheckResults.missedItems.length > 0 && (
                   <div className="border border-foreground/10 overflow-hidden bg-background">
@@ -1184,6 +1308,88 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                   </div>
                 )}
 
+                {mismatchedStandard.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        <span>⚠ Mismatched Specification Items</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {mismatchedStandard.length} Mismatched
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-foreground/5 border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Serial Number</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {mismatchedStandard.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
+                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.serial_number || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {mismatchedAmmunition.length > 0 && (
+                  <div className="border border-foreground/10 overflow-hidden bg-background">
+                    <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        <span>⚠ Mismatched Ammunition Items</span>
+                      </h5>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20">
+                        {mismatchedAmmunition.length} Mismatched
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-foreground/5 border-b border-foreground/10">
+                          <tr>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Previous Report</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Expended</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Replenished</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Balance on Hand</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
+                          {mismatchedAmmunition.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-foreground/5 transition-colors">
+                              <td className="px-4 py-2 text-xs">
+                                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-error/20 text-error">
+                                  {item.syncStatus}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
+                              <td className="px-4 py-2 text-xs">{item.classification}</td>
+                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
+                              <td className="px-4 py-2 text-xs">{item.previous_report ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs">{item.expended ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs">{item.replenished ?? '-'}</td>
+                              <td className="px-4 py-2 text-xs">{item.balance_on_hand ?? '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {syncCheckResults.internalDuplicates.length > 0 && (
                   <div className="border border-foreground/10 overflow-hidden bg-background">
                     <div className="bg-foreground/5 px-4 py-2.5 border-b border-foreground/10 flex items-center justify-between">
@@ -1223,7 +1429,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
           <div className="mt-4 flex justify-center gap-3">
             <button
               onClick={() => handleImport()}
-              disabled={isImporting || Boolean(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0)}
+              disabled={isImporting || Boolean(syncCheckResults.notOnMasterlist.length > 0 || syncCheckResults.missedItems.length > 0 || syncCheckResults.internalDuplicates.length > 0 || syncCheckResults.mismatched.length > 0 || hasMismatchedUniqueCode)}
               className="bg-accent text-white px-6 py-3 hover:bg-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
             >
               {isImporting ? 'Importing...' : 'Confirm Import'}
@@ -1240,6 +1446,22 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
             const items = groupedItems[equipmentCode]
             if (!items || items.length === 0) return null
 
+            const isAmmunitionSection =
+              equipment?.equipment_type === 'ammunitions' ||
+              equipment?.equipment_type === 'ammunition' ||
+              equipmentCode.toLowerCase().includes('ammunition') ||
+              items.some(item => item.section === 'ammunitions' || item.section === 'ammunition')
+
+            const isNavigationalSensorsSection =
+              !isAmmunitionSection && (
+                equipment?.equipment_type === 'ne' ||
+                equipment?.equipment_type === 'navigational' ||
+                equipment?.equipment_type?.toLowerCase().includes('navig') ||
+                equipmentCode.toLowerCase().includes('navigational') ||
+                equipmentCode.toUpperCase().startsWith('NE') ||
+                items.some(item => item.section === 'navigational sensors')
+              )
+
             return (
               <div key={equipmentCode} className="border border-foreground/10 overflow-hidden mb-4 last:mb-0">
                 <div className="bg-foreground/5 px-4 py-3 border-b border-foreground/10">
@@ -1247,29 +1469,121 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                   <p className="text-xs text-foreground-muted">{equipmentCode} • {items.length} items</p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left whitespace-nowrap min-w-max">
                     <thead className="bg-foreground/5">
-                      <tr>
-                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
-                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
-                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
-                        <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
-                      </tr>
+                      {isAmmunitionSection ? (
+                        <tr>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Previous Report</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Expended</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Replenished</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Balance on Hand</th>
+                        </tr>
+                      ) : isNavigationalSensorsSection ? (
+                        <tr>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Brand</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Model</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Serial Number</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Part Number</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date Manufactured</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date Issued</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date of Last PMS</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date of Last Repair</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">ICS</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">PAR</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Remarks</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Running Hours</th>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Brand</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Model</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Serial Number</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Part Number</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date Manufactured</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date Issued</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date of Last PMS</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Date of Last Repair</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">ICS</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">PAR</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Remarks</th>
+                        </tr>
+                      )}
                     </thead>
                     <tbody className="divide-y divide-foreground/5">
-                      {items.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-foreground/5 transition-colors">
-                          <td className="px-3 py-2 text-xs">
-                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${item.syncStatus === 'sync' ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-                              }`}>
-                              {item.syncStatus}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-sm font-medium">{item.unique_code}</td>
-                          <td className="px-3 py-2 text-sm">{item.nomenclature}</td>
-                          <td className="px-3 py-2 text-sm">{item.status}</td>
-                        </tr>
-                      ))}
+                      {items.map((item, idx) => {
+                        const isMismatched = mode === 'monthly' && prefixBase && item.unique_code && !item.unique_code.toLowerCase().includes(prefixBase.toLowerCase());
+                        return (
+                          <tr key={idx} className={`hover:bg-foreground/5 transition-colors ${isMismatched ? 'bg-red-500/5' : ''}`}>
+                            <td className="px-3 py-2 text-xs">
+                              <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${isMismatched ? 'bg-red-100 text-red-800 border border-red-300' :
+                                item.syncStatus === 'sync' ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+                                }`}>
+                                {isMismatched ? 'mismatched' : item.syncStatus}
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2 text-sm font-medium ${isMismatched ? 'text-red-500 font-bold font-mono' : ''}`}>{item.unique_code}</td>
+                            {isAmmunitionSection ? (
+                              <>
+                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.previous_report ?? '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.expended ?? '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.replenished ?? '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.balance_on_hand ?? '-'}</td>
+                              </>
+                            ) : isNavigationalSensorsSection ? (
+                              <>
+                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.brand || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.model || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.serial_number || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.part_number || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.ics || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.par || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.status || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.remarks || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.running_hours || '-'}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.brand || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.model || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.serial_number || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.part_number || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.ics || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.par || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.status || '-'}</td>
+                                <td className="px-3 py-2 text-sm">{item.remarks || '-'}</td>
+                              </>
+                            )}
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
