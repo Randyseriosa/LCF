@@ -1746,40 +1746,67 @@ export function ImportItemsModal({
                         </button>
                     </div>
                 )}
-                {showConfirmDeleteMissedModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
-                        <div className="bg-[#FFFFFF] max-w-md w-full border border-[#000080] p-6 rounded-none flex flex-col gap-4 shadow-[#000033]/20 shadow-lg text-left">
-                            <div className="flex items-start gap-3">
-                                <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <h4 className="font-bold text-lg text-[#000033] uppercase tracking-wider">Confirm Delete Missed Items</h4>
-                                    <p className="text-sm text-foreground-muted mt-2">
-                                        There are <span className="font-bold text-red-600">{parsedData.filter(item => item.status === 'missed').length} missed items</span> that exist in the system but are absent from the imported file.
-                                        Importing this file will <span className="font-bold text-red-600">permanently delete</span> these items from the database.
-                                        This action cannot be undone. Do you wish to proceed?
-                                    </p>
+                {showConfirmDeleteMissedModal && (() => {
+                    const missedCount = parsedData.filter(item => item.status === 'missed').length
+                    const overwriteCount = parsedData.filter(item => item.status === 'overwrite').length
+                    const hasOverwrites = overwriteCount > 0 || (isMonthlyReport && monthlyReportExists)
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+                            <div className="bg-[#FFFFFF] max-w-md w-full border border-[#000080] p-6 rounded-none flex flex-col gap-4 shadow-[#000033]/20 shadow-lg text-left">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+                                    <div>
+                                        <h4 className="font-bold text-lg text-[#000033] uppercase tracking-wider">
+                                            {hasOverwrites ? 'Confirm Delete & Overwrite' : 'Confirm Delete Missed Items'}
+                                        </h4>
+                                        {hasOverwrites ? (
+                                            <div className="text-sm text-foreground-muted mt-2 space-y-2">
+                                                <p>
+                                                    The import configuration contains both specification updates and missing database records:
+                                                </p>
+                                                <ul className="list-disc pl-5 space-y-1 font-medium">
+                                                    <li>
+                                                        <span className="font-bold text-red-600">{missedCount} missed items</span> will be <span className="font-bold text-red-600">permanently deleted</span> from the system.
+                                                    </li>
+                                                    <li>
+                                                        <span className="font-bold text-[#000080]">{overwriteCount > 0 ? `${overwriteCount} existing items` : 'The existing monthly report'}</span> will be overwritten and updated with the file specs.
+                                                    </li>
+                                                </ul>
+                                                <p className="font-semibold text-[#000033] mt-3">
+                                                    These changes will write directly to the active registries. This action cannot be undone. Do you wish to proceed?
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-foreground-muted mt-2">
+                                                There are <span className="font-bold text-red-600">{missedCount} missed items</span> that exist in the system but are absent from the imported file.
+                                                Importing this file will <span className="font-bold text-red-600">permanently delete</span> these items from the database.
+                                                This action cannot be undone. Do you wish to proceed?
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3 mt-2">
+                                    <button
+                                        onClick={() => setShowConfirmDeleteMissedModal(false)}
+                                        className="px-4 py-2 border border-[#000080] bg-[#E6E6FA] text-[#000033] hover:bg-[#E6E6FA]/80 text-xs font-bold uppercase tracking-wider transition-colors rounded-none"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            setShowConfirmDeleteMissedModal(false)
+                                            await executeImport(hasOverwrites)
+                                        }}
+                                        className="px-5 py-2 bg-red-600 text-[#FFFFFF] hover:bg-red-700 text-xs font-bold uppercase tracking-wider transition-colors rounded-none"
+                                    >
+                                        {hasOverwrites ? 'Confirm & Process' : 'Confirm Deletion'}
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-3 mt-2">
-                                <button
-                                    onClick={() => setShowConfirmDeleteMissedModal(false)}
-                                    className="px-4 py-2 border border-[#000080] bg-[#E6E6FA] text-[#000033] hover:bg-[#E6E6FA]/80 text-xs font-bold uppercase transition-colors rounded-none"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        setShowConfirmDeleteMissedModal(false)
-                                        await handleImport(true)
-                                    }}
-                                    className="px-5 py-2 bg-red-600 text-[#FFFFFF] hover:bg-red-700 text-xs font-bold uppercase transition-colors rounded-none"
-                                >
-                                    Confirm Deletion
-                                </button>
-                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                })()}
                 {showConfirmOverwriteModal && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
                         <div className="bg-[#FFFFFF] max-w-md w-full border border-[#000080] p-6 rounded-none flex flex-col gap-4 shadow-[#000033]/20 shadow-lg text-left">
