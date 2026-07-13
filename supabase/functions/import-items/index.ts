@@ -85,6 +85,7 @@ interface Payload {
   vessel_id?: string
   items: ImportItem[]
   overwrite?: boolean
+  missed_unique_codes?: string[]
 }
 
 Deno.serve(async (req: Request) => {
@@ -115,12 +116,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: Payload = await req.json()
-    const { equipment_id, vessel_id, items, overwrite } = body
+    const { equipment_id, vessel_id, items, overwrite, missed_unique_codes } = body
 
     // Safe logging without circular reference issues
-    console.log('Received payload - equipment_id:', equipment_id, 'vessel_id:', vessel_id, 'items count:', items?.length, 'overwrite:', overwrite)
+    console.log('Received payload - equipment_id:', equipment_id, 'vessel_id:', vessel_id, 'items count:', items?.length, 'overwrite:', overwrite, 'missed count:', missed_unique_codes?.length)
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if ((!items || !Array.isArray(items) || items.length === 0) && (!missed_unique_codes || missed_unique_codes.length === 0)) {
       return errorResponse('No new items to import. All items in the file may already exist in the system or no valid items were found.', 400)
     }
 
@@ -155,7 +156,7 @@ Deno.serve(async (req: Request) => {
     })
 
     // Fetch all existing items with all specs for potential rollback/overwrite
-    const uniqueCodes = items.map(item => item.unique_code)
+    const uniqueCodes = (items || []).map(item => item.unique_code)
     const { data: existingItems, error: existingItemsError } = await supabaseAdmin
       .from('items')
       .select('id, unique_code, classification, nomenclature, brand, model, serial_number, part_number, date_manufactured, date_installed_issued, ics, par, quantity, equipment_id')
@@ -191,8 +192,8 @@ Deno.serve(async (req: Request) => {
     console.log('[DEBUG] Existing unique codes:', Array.from(existingUniqueCodes))
 
     // Separate items to insert from items to update
-    const itemsToInsertRaw = items.filter(item => !existingUniqueCodes.has(item.unique_code))
-    const itemsToUpdateRaw = overwrite ? items.filter(item => existingUniqueCodes.has(item.unique_code)) : []
+    const itemsToInsertRaw = (items || []).filter(item => !existingUniqueCodes.has(item.unique_code))
+    const itemsToUpdateRaw = overwrite ? (items || []).filter(item => existingUniqueCodes.has(item.unique_code)) : []
 
     console.log('[DEBUG] Items to insert:', itemsToInsertRaw.length, 'Items to update:', itemsToUpdateRaw.length)
 
@@ -284,6 +285,7 @@ Deno.serve(async (req: Request) => {
 
     let updatedCount = 0
     let insertedCount = 0
+    let deletedCount = 0
     const updatedItemsTracker: string[] = []
     const insertedIdsTracker: string[] = []
 
@@ -393,6 +395,26 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+
+      // 3. Process deletions (missed items)
+      deletedCount = 0
+      if (missed_unique_codes && missed_unique_codes.length > 0) {
+        console.log(`Deleting ${missed_unique_codes.length} missed items:`, missed_unique_codes)
+        const { data: deletedRows, error: deleteError } = await supabaseAdmin
+          .from('items')
+          .delete()
+          .in('unique_code', missed_unique_codes)
+          .select('id')
+
+        if (deleteError) {
+          console.error('Error deleting missed items:', deleteError)
+          throw new Error(`Failed to delete missed items: ${deleteError.message}`)
+        }
+
+        if (deletedRows) {
+          deletedCount = deletedRows.length
+        }
+      }
     } catch (err) {
       console.error('Operation failed, executing rollback...', err)
 
@@ -451,20 +473,22 @@ Deno.serve(async (req: Request) => {
       return errorResponse(`Database import/update failed: ${(err as Error).message}`, 500)
     }
 
-    if (insertedCount === 0 && updatedCount === 0) {
+    if (insertedCount === 0 && updatedCount === 0 && deletedCount === 0) {
       return successResponse({
         message: 'No actions performed. All items in the file already exist and match their previous data, or were skipped.',
         insertedCount: 0,
         updatedCount: 0,
-        skipped: items.length
+        deletedCount: 0,
+        skipped: (items || []).length
       })
     }
 
     return successResponse({
-      message: `Successfully processed items: ${insertedCount} inserted, ${updatedCount} updated.`,
+      message: `Successfully processed items: ${insertedCount} inserted, ${updatedCount} updated, ${deletedCount} missed deleted.`,
       insertedCount,
       updatedCount,
-      skipped: items.length - (insertedCount + updatedCount)
+      deletedCount,
+      skipped: (items || []).length - (insertedCount + updatedCount)
     })
   } catch (err) {
     console.error('Unexpected error:', err)

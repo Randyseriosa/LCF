@@ -130,6 +130,7 @@ export function ImportItemsModal({
     const [parsedFileInfo, setParsedFileInfo] = useState<ParsedFileInfo | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [showConfirmOverwriteModal, setShowConfirmOverwriteModal] = useState(false)
+    const [showConfirmDeleteMissedModal, setShowConfirmDeleteMissedModal] = useState(false)
     const [showSuccessModal, setShowSuccessModal] = useState(false)
     const [monthlyReportExists, setMonthlyReportExists] = useState(false)
     const [showMonthlyReportOverwriteConfirm, setShowMonthlyReportOverwriteConfirm] = useState(false)
@@ -171,6 +172,7 @@ export function ImportItemsModal({
             setIsSuccess(false)
             setParsedFileInfo(null)
             setShowConfirmOverwriteModal(false)
+            setShowConfirmDeleteMissedModal(false)
             setShowSuccessModal(false)
 
             setActiveTab('import')
@@ -197,6 +199,7 @@ export function ImportItemsModal({
         setIsSuccess(false)
         setParsedFileInfo(null)
         setShowConfirmOverwriteModal(false)
+        setShowConfirmDeleteMissedModal(false)
         setShowSuccessModal(false)
 
         setVerifyFile(null)
@@ -452,6 +455,7 @@ export function ImportItemsModal({
         setError(null)
 
         try {
+            let dbVessel: any = null
             // Validate vessel existence if bow_number or slug is present (Masterlist or Monthly Report)
             if (parsedFileInfo?.bow_number || parsedFileInfo?.slug) {
                 const supabase = createClient()
@@ -481,6 +485,8 @@ export function ImportItemsModal({
                     setIsProcessing(false)
                     return
                 }
+
+                dbVessel = vessel
 
                 // Check if a monthly report has already been submitted for this vessel and month
                 if (vessel && isMonthlyReport && parsedFileInfo?.month && parsedFileInfo?.year) {
@@ -736,10 +742,12 @@ export function ImportItemsModal({
             const supabase = createClient()
 
             // If it's HQ inventory, we want all OLCF6 items to check for missed items
-            // Otherwise just check the ones in the file
+            // Otherwise check the ones in the file or by vessel
             let existingItemsQuery = supabase.from('items').select('*')
 
-            if (isHqInventory) {
+            if (dbVessel) {
+                existingItemsQuery = existingItemsQuery.eq('vessel_id', dbVessel.id)
+            } else if (isHqInventory) {
                 existingItemsQuery = existingItemsQuery.ilike('unique_code', '%OLCF6%')
             } else {
                 const uniqueCodes = items.map(item => item.unique_code)
@@ -826,31 +834,36 @@ export function ImportItemsModal({
                 return { ...item, status, originalDbItem: dbItem }
             })
 
-            // If monthly report, identify missed items (in DB but not in File)
-            if (isMonthlyReport && existingItems) {
+            // Identify missed items (in DB but not in File)
+            if (existingItems) {
                 const fileUniqueCodes = new Set(items.map(i => i.unique_code))
-                const missedItems: ImportItem[] = existingItems
-                    .filter(dbItem => !fileUniqueCodes.has(dbItem.unique_code))
-                    .map(dbItem => ({
-                        unique_code: dbItem.unique_code,
-                        classification: dbItem.classification || '',
-                        nomenclature: dbItem.nomenclature || '',
-                        brand: dbItem.brand || '',
-                        model: dbItem.model || '',
-                        serial_number: dbItem.serial_number || '',
-                        part_number: dbItem.part_number || '',
-                        date_manufactured: dbItem.date_manufactured || '',
-                        date_installed_issued: dbItem.date_installed_issued || '',
-                        ics: dbItem.ics || '',
-                        par: dbItem.par || '',
-                        quantity: dbItem.quantity,
-                        date_last_pms: dbItem.date_last_pms || undefined,
-                        date_last_repair: dbItem.date_last_repair || undefined,
-                        running_hours: dbItem.running_hours,
-                        remarks: dbItem.remarks || undefined,
-                        item_data_status: dbItem.status || undefined,
-                        status: 'missed'
-                    }))
+                let missedDbItems = existingItems.filter(dbItem => !fileUniqueCodes.has(dbItem.unique_code))
+
+                // If equipmentId is provided structure, filter missed items to only those under this equipment
+                if (equipmentId) {
+                    missedDbItems = missedDbItems.filter(dbItem => dbItem.equipment_id === equipmentId)
+                }
+
+                const missedItems: ImportItem[] = missedDbItems.map(dbItem => ({
+                    unique_code: dbItem.unique_code,
+                    classification: dbItem.classification || '',
+                    nomenclature: dbItem.nomenclature || '',
+                    brand: dbItem.brand || '',
+                    model: dbItem.model || '',
+                    serial_number: dbItem.serial_number || '',
+                    part_number: dbItem.part_number || '',
+                    date_manufactured: dbItem.date_manufactured || '',
+                    date_installed_issued: dbItem.date_installed_issued || '',
+                    ics: dbItem.ics || '',
+                    par: dbItem.par || '',
+                    quantity: dbItem.quantity,
+                    date_last_pms: dbItem.date_last_pms || undefined,
+                    date_last_repair: dbItem.date_last_repair || undefined,
+                    running_hours: dbItem.running_hours,
+                    remarks: dbItem.remarks || undefined,
+                    item_data_status: dbItem.status || undefined,
+                    status: 'missed'
+                }))
 
                 processedItems.push(...missedItems)
             }
@@ -960,7 +973,7 @@ export function ImportItemsModal({
             }
 
             // Standard import logic for everything else
-            // Remove status property before sending to edge function
+            // Remove status and DB metadata properties before sending to edge function
             const itemsToImport = itemsWithEquipmentId
                 .filter(item => {
                     if (overwrite) {
@@ -968,12 +981,16 @@ export function ImportItemsModal({
                     }
                     return item.status === 'new';
                 })
-                .map(({ status, ...item }) => item)
+                .map(({ status, originalDbItem, ...item }) => item)
 
-            console.log('Sending items to import. Count:', itemsToImport.length, 'Overwrite:', overwrite)
+            const missedUniqueCodes = parsedData
+                .filter(item => item.status === 'missed')
+                .map(item => item.unique_code)
 
-            if (itemsToImport.length === 0) {
-                setError('No items to import/update. All items in the file already exist and are identical.')
+            console.log('Sending items to import. Count:', itemsToImport.length, 'Overwrite:', overwrite, 'Missed to delete:', missedUniqueCodes.length)
+
+            if (itemsToImport.length === 0 && missedUniqueCodes.length === 0) {
+                setError('No items to import, update, or delete. All items in the file already exist and are identical.')
                 setIsImporting(false)
                 return
             }
@@ -981,7 +998,8 @@ export function ImportItemsModal({
             const payload = {
                 equipment_id: equipmentId,
                 items: itemsToImport,
-                overwrite
+                overwrite,
+                missed_unique_codes: missedUniqueCodes
             }
 
             // Safe JSON stringify to detect circular references
@@ -1020,7 +1038,13 @@ export function ImportItemsModal({
         }
     }
 
-    const handleImport = async () => {
+    const handleImport = async (skipMissedCheck: boolean = false) => {
+        const missedCount = parsedData.filter(item => item.status === 'missed').length
+        if (missedCount > 0 && !skipMissedCheck) {
+            setShowConfirmDeleteMissedModal(true)
+            return
+        }
+
         if (isMonthlyReport && monthlyReportExists) {
             setShowMonthlyReportOverwriteConfirm(true)
         } else {
@@ -1040,6 +1064,7 @@ export function ImportItemsModal({
         setIsSuccess(false)
         setMonthlyReportExists(false)
         setShowMonthlyReportOverwriteConfirm(false)
+        setShowConfirmDeleteMissedModal(false)
         if (fileInputRef.current) {
             fileInputRef.current.value = ''
         }
@@ -1209,8 +1234,8 @@ export function ImportItemsModal({
                                             )}
                                             {parsedData.some(item => item.status === 'missed') && (
                                                 <div className="flex items-center gap-2 text-foreground-muted">
-                                                    <AlertCircle className="w-4 h-4 text-error" />
-                                                    {parsedData.filter(item => item.status === 'missed').length} missed from masterlist
+                                                    <AlertCircle className="w-4 h-4 text-warning" />
+                                                    {parsedData.filter(item => item.status === 'missed').length} missed items (will be deleted)
                                                 </div>
                                             )}
                                         </div>
@@ -1654,7 +1679,7 @@ export function ImportItemsModal({
                                 A monthly report already exists for this period. Importing will overwrite and replace the details.
                             </div>
                         )}
-                        {(isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed')) ||
+                        {(isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist')) ||
                             parsedData.some(item => item.status === 'internal_duplicate') ||
                             hasMismatchedUniqueCode ? (
                             <div className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-widest bg-error-bg/10 p-2 mb-1">
@@ -1675,10 +1700,10 @@ export function ImportItemsModal({
                                 Cancel
                             </button>
                             <button
-                                onClick={handleImport}
+                                onClick={() => handleImport(false)}
                                 disabled={
                                     isImporting ||
-                                    (isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist' || item.status === 'missed')) ||
+                                    (isMonthlyReport && parsedData.some(item => item.status === 'not_on_masterlist')) ||
                                     parsedData.some(item => item.status === 'internal_duplicate') ||
                                     hasMismatchedUniqueCode
                                 }
@@ -1719,6 +1744,40 @@ export function ImportItemsModal({
                         >
                             Close
                         </button>
+                    </div>
+                )}
+                {showConfirmDeleteMissedModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+                        <div className="bg-[#FFFFFF] max-w-md w-full border border-[#000080] p-6 rounded-none flex flex-col gap-4 shadow-[#000033]/20 shadow-lg text-left">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+                                <div>
+                                    <h4 className="font-bold text-lg text-[#000033] uppercase tracking-wider">Confirm Delete Missed Items</h4>
+                                    <p className="text-sm text-foreground-muted mt-2">
+                                        There are <span className="font-bold text-red-600">{parsedData.filter(item => item.status === 'missed').length} missed items</span> that exist in the system but are absent from the imported file.
+                                        Importing this file will <span className="font-bold text-red-600">permanently delete</span> these items from the database.
+                                        This action cannot be undone. Do you wish to proceed?
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-2">
+                                <button
+                                    onClick={() => setShowConfirmDeleteMissedModal(false)}
+                                    className="px-4 py-2 border border-[#000080] bg-[#E6E6FA] text-[#000033] hover:bg-[#E6E6FA]/80 text-xs font-bold uppercase transition-colors rounded-none"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        setShowConfirmDeleteMissedModal(false)
+                                        await handleImport(true)
+                                    }}
+                                    className="px-5 py-2 bg-red-600 text-[#FFFFFF] hover:bg-red-700 text-xs font-bold uppercase transition-colors rounded-none"
+                                >
+                                    Confirm Deletion
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
                 {showConfirmOverwriteModal && (
