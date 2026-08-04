@@ -46,7 +46,7 @@ export function Sidebar({ role }: { role: Role }) {
         case ROLES.admin:
             navItems.push(
                 { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-                { name: 'Global Inventory View', href: '/admin/global-inventory-view', icon: FileText },
+                { name: 'Export Data', href: '/admin/export-data', icon: FileText },
                 { name: 'Reports', href: '/admin/monthly-report', icon: FileBarChart2 },
                 { name: 'Transfer Items', href: '/admin/transfer-items', icon: ArrowLeftRight },
                 { name: 'Unserviceable Items', href: '/admin/unserviceable-items', icon: Archive },
@@ -57,7 +57,7 @@ export function Sidebar({ role }: { role: Role }) {
         case ROLES.encoder:
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
-                { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
+                { name: 'Export Data', href: `/${role}/export-data`, icon: FileText },
                 { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
                 { name: 'Transfer Items', href: `/${role}/transfer-items`, icon: ArrowLeftRight },
                 { name: 'Unserviceable Items', href: `/${role}/unserviceable-items`, icon: Archive },
@@ -67,7 +67,7 @@ export function Sidebar({ role }: { role: Role }) {
         case ROLES.viewer:
             navItems.push(
                 { name: 'Overview', href: `/${role}`, icon: LayoutDashboard },
-                { name: 'Global Inventory View', href: `/${role}/global-inventory-view`, icon: FileText },
+                { name: 'Export Data', href: `/${role}/export-data`, icon: FileText },
                 { name: 'Reports', href: `/${role}/monthly-report`, icon: FileBarChart2 },
                 { name: 'Transfer Items', href: `/${role}/transfer-items`, icon: ArrowLeftRight },
                 { name: 'Unserviceable Items', href: `/${role}/unserviceable-items`, icon: Archive }

@@ -46,6 +46,7 @@ interface MonthlyReportItem {
   balance_on_hand?: number | null
   section?: string // Track which section the item came from
   syncStatus?: 'sync' | 'not_on_masterlist' | 'mismatched' | 'internal_duplicate'
+  mismatchedFields?: string[]
 }
 
 const formatPreviewDate = (dateVal: any) => {
@@ -543,17 +544,18 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
 
         const isAmmunition = master.equipment_type === 'ammunitions' || master.equipment_type === 'ammunition' || (item.section === 'ammunitions' || item.section === 'ammunition')
         let allMatched = true
+        const mismatchedFields: string[] = []
 
-        if (!textMatch(item.classification, master.classification)) allMatched = false
-        if (!textMatch(item.nomenclature, master.nomenclature)) allMatched = false
+        if (!textMatch(item.classification, master.classification)) { allMatched = false; mismatchedFields.push('classification') }
+        if (!textMatch(item.nomenclature, master.nomenclature)) { allMatched = false; mismatchedFields.push('nomenclature') }
 
         if (!isAmmunition) {
-          if (!textMatch(item.brand, master.brand)) allMatched = false
-          if (!textMatch(item.model, master.model)) allMatched = false
-          if (!textMatch(item.serial_number, master.serial_number)) allMatched = false
-          if (!textMatch(item.part_number, master.part_number)) allMatched = false
-          if (!dateMatch(item.date_manufactured, master.date_manufactured)) allMatched = false
-          if (!dateMatch(item.date_installed_issued, master.date_installed_issued)) allMatched = false
+          if (!textMatch(item.brand, master.brand)) { allMatched = false; mismatchedFields.push('brand') }
+          if (!textMatch(item.model, master.model)) { allMatched = false; mismatchedFields.push('model') }
+          if (!textMatch(item.serial_number, master.serial_number)) { allMatched = false; mismatchedFields.push('serial_number') }
+          if (!textMatch(item.part_number, master.part_number)) { allMatched = false; mismatchedFields.push('part_number') }
+          if (!dateMatch(item.date_manufactured, master.date_manufactured)) { allMatched = false; mismatchedFields.push('date_manufactured') }
+          if (!dateMatch(item.date_installed_issued, master.date_installed_issued)) { allMatched = false; mismatchedFields.push('date_installed_issued') }
         } else {
           // Ammunitions check logic
           if (item.previous_report !== undefined && item.previous_report !== null) {
@@ -562,13 +564,14 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
               const prevBOH = previousReportItemsMap.get(item.unique_code)
               if (prevBOH !== undefined && prevBOH !== item.previous_report) {
                 allMatched = false
+                mismatchedFields.push('previous_report')
               } else if (prevBOH === undefined) {
                 // Not in previous report, fallback to masterlist quantity
-                if (master.quantity !== item.previous_report) allMatched = false
+                if (master.quantity !== item.previous_report) { allMatched = false; mismatchedFields.push('previous_report') }
               }
             } else {
               // First time import (no previous report found)
-              if (master.quantity !== item.previous_report) allMatched = false
+              if (master.quantity !== item.previous_report) { allMatched = false; mismatchedFields.push('previous_report') }
             }
           }
         }
@@ -576,7 +579,7 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
         if (allMatched) {
           sync.push({ ...item, syncStatus: 'sync' })
         } else {
-          mismatched.push({ ...item, syncStatus: 'mismatched' })
+          mismatched.push({ ...item, syncStatus: 'mismatched', mismatchedFields })
         }
       })
 
@@ -1322,19 +1325,49 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                       <table className="w-full text-left">
                         <thead className="bg-foreground/5 border-b border-foreground/10">
                           <tr>
-                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Unique Code</th>
-                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Nomenclature</th>
-                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Classification</th>
-                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Serial Number</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Status</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Unique Code</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Classification</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Nomenclature</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Brand</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Model</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Serial Number</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Part Number</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Date Manufactured</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Date Installed/Issued</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">ICS</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">PAR</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Date of Last PMs</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Date of Last Repair</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Running Hours</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Status (Condition)</th>
+                            <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-foreground-muted whitespace-nowrap">Remarks</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-foreground/5 font-medium text-foreground">
                           {mismatchedStandard.map((item, idx) => (
                             <tr key={idx} className="hover:bg-foreground/5 transition-colors">
-                              <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
-                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
-                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.classification}</td>
-                              <td className="px-4 py-2 text-foreground-muted text-xs">{item.serial_number || '-'}</td>
+                              <td className="px-4 py-2 whitespace-nowrap">
+                                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-error/20 text-error">
+                                  {item.syncStatus}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 font-mono font-black text-primary text-xs whitespace-nowrap">{item.unique_code}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('classification') ? 'bg-error/20 text-error' : ''}`}>{item.classification || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('nomenclature') ? 'bg-error/20 text-error' : ''}`}>{item.nomenclature || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('brand') ? 'bg-error/20 text-error' : ''}`}>{item.brand || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('model') ? 'bg-error/20 text-error' : ''}`}>{item.model || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('serial_number') ? 'bg-error/20 text-error' : ''}`}>{item.serial_number || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('part_number') ? 'bg-error/20 text-error' : ''}`}>{item.part_number || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('date_manufactured') ? 'bg-error/20 text-error' : ''}`}>{formatPreviewDate(item.date_manufactured)}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap ${item.mismatchedFields?.includes('date_installed_issued') ? 'bg-error/20 text-error' : ''}`}>{formatPreviewDate(item.date_installed_issued)}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{item.ics || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{item.par || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{formatPreviewDate(item.date_last_pms)}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{formatPreviewDate(item.date_last_repair)}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{item.running_hours || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{item.status || '-'}</td>
+                              <td className={`px-4 py-2 text-xs whitespace-nowrap`}>{item.remarks || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1376,12 +1409,12 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                                 </span>
                               </td>
                               <td className="px-4 py-2 font-mono font-black text-primary text-xs">{item.unique_code}</td>
-                              <td className="px-4 py-2 text-xs">{item.classification}</td>
-                              <td className="px-4 py-2 text-xs">{item.nomenclature}</td>
-                              <td className="px-4 py-2 text-xs">{item.previous_report ?? '-'}</td>
-                              <td className="px-4 py-2 text-xs">{item.expended ?? '-'}</td>
-                              <td className="px-4 py-2 text-xs">{item.replenished ?? '-'}</td>
-                              <td className="px-4 py-2 text-xs">{item.balance_on_hand ?? '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('classification') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.classification || '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('nomenclature') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.nomenclature || '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('previous_report') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.previous_report ?? '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('expended') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.expended ?? '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('replenished') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.replenished ?? '-'}</td>
+                              <td className={`px-4 py-2 text-xs ${item.mismatchedFields?.includes('balance_on_hand') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.balance_on_hand ?? '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1538,47 +1571,47 @@ export function ImportPageClient({ mode = 'monthly' }: { mode?: 'monthly' | 'der
                             <td className={`px-3 py-2 text-sm font-medium ${isMismatched ? 'text-red-500 font-bold font-mono' : ''}`}>{item.unique_code}</td>
                             {isAmmunitionSection ? (
                               <>
-                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.previous_report ?? '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.expended ?? '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.replenished ?? '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.balance_on_hand ?? '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('classification') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.classification || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('nomenclature') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.nomenclature || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('previous_report') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.previous_report ?? '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('expended') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.expended ?? '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('replenished') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.replenished ?? '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('balance_on_hand') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.balance_on_hand ?? '-'}</td>
                               </>
                             ) : isNavigationalSensorsSection ? (
                               <>
-                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.brand || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.model || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.serial_number || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.part_number || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.ics || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.par || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.status || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.remarks || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.running_hours || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('classification') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.classification || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('nomenclature') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.nomenclature || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('brand') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.brand || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('model') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.model || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('serial_number') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.serial_number || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('part_number') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.part_number || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_manufactured') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_installed_issued') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_last_pms') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_last_repair') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('ics') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.ics || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('par') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.par || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('status') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.status || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('remarks') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.remarks || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('running_hours') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.running_hours || '-'}</td>
                               </>
                             ) : (
                               <>
-                                <td className="px-3 py-2 text-sm">{item.classification || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.nomenclature || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.brand || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.model || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.serial_number || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.part_number || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.ics || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.par || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.status || '-'}</td>
-                                <td className="px-3 py-2 text-sm">{item.remarks || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('classification') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.classification || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('nomenclature') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.nomenclature || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('brand') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.brand || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('model') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.model || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('serial_number') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.serial_number || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('part_number') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.part_number || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_manufactured') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_manufactured ? formatPreviewDate(item.date_manufactured) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_installed_issued') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_installed_issued ? formatPreviewDate(item.date_installed_issued) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_last_pms') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_last_pms ? formatPreviewDate(item.date_last_pms) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('date_last_repair') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.date_last_repair ? formatPreviewDate(item.date_last_repair) : '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('ics') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.ics || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('par') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.par || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('status') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.status || '-'}</td>
+                                <td className={`px-3 py-2 text-sm ${item.mismatchedFields?.includes('remarks') ? 'bg-error/20 text-error font-bold' : ''}`}>{item.remarks || '-'}</td>
                               </>
                             )}
                           </tr>

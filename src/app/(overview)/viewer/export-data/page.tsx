@@ -2,10 +2,10 @@ import InventoryReportPage from '@/features/inventory-report/components/Inventor
 import { ROLES } from '@/lib/types/roles'
 
 export const metadata = {
-    title: 'Global Inventory View | Viewer',
-    description: 'View global inventory',
+    title: 'Export Data | Viewer',
+    description: 'Export global inventory data',
 }
 
-export default function ViewerInventoryReportPage() {
+export default function ViewerExportDataPage() {
     return <InventoryReportPage role={ROLES.viewer} />
 }

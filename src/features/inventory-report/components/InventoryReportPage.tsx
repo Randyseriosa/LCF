@@ -58,7 +58,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Global Inventory View"
+        title="Export Data"
         description={`Total Vessels: ${bowGroups.length}`}
         Icon={FileText}
         bannerImage="/images/banners/banner-general-button.webp"
