@@ -45,8 +45,6 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
     const [equipmentToDelete, setEquipmentToDelete] = useState<{ id: string, name: string } | null>(null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const { items, loading: itemsLoading, error: itemsError } = useEquipmentItems(selectedEquipment?.id || null)
-    const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false)
-    const [isClearing, setIsClearing] = useState(false)
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
     const [successModalData, setSuccessModalData] = useState<{ title: string, message: string }>({ title: '', message: '' })
 
@@ -136,43 +134,6 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
             } catch (err: any) {
                 setUniqueCodeError(err.message)
             }
-        }
-    }
-
-    const handleClearAllItems = async () => {
-        setIsClearing(true)
-        try {
-            const supabase = createClient()
-            const user = await getAuthUser()
-            if (!user) throw new Error('Not authenticated')
-
-            const token = await getValidAccessToken()
-            if (!token) throw new Error('Not authenticated')
-
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/clear-all-items`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
-
-            const result = await response.json()
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to clear items')
-            }
-
-            setIsClearAllModalOpen(false)
-            // Refresh the page to reflect changes
-            router.refresh()
-        } catch (err: any) {
-            setErrorMessage(err.message)
-        } finally {
-            setIsClearing(false)
         }
     }
 
@@ -330,14 +291,6 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                 bannerImage="/images/banners/banner-general-button.webp"
                 actions={
                     <div className="flex gap-3">
-                        {(role === ROLES.admin || role === ROLES.encoder) && (
-                            <button
-                                onClick={() => setIsClearAllModalOpen(true)}
-                                className="bg-error text-white px-4 py-2.5 flex items-center gap-2 hover:bg-error/90 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
-                            >
-                                <Trash2 className="w-4 h-4" /> Clear All Items (Dev)
-                            </button>
-                        )}
                         {canEdit && (
                             <>
                                 <button
@@ -585,46 +538,6 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
                                             className="px-6 py-2.5 bg-accent text-white hover:bg-secondary-hover transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
                                         >
                                             OK
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
-
-                {/* CLEAR ALL ITEMS CONFIRMATION MODAL */}
-                {
-                    isClearAllModalOpen && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                            <div className=" bg-surface max-w-md w-full shadow-popover border border-foreground/10">
-                                <div className="flex justify-between items-center p-3 border-b border-foreground/10">
-                                    <h3 className="font-semibold text-[20px] text-foreground">Clear All Items (Dev Tool)</h3>
-                                    <button onClick={() => setIsClearAllModalOpen(false)} className="text-foreground-muted hover:text-foreground transition-colors p-1 hover:bg-foreground/5">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <div className="p-3 space-y-4">
-                                    <p className="text-foreground text-sm">
-                                        This will <span className="font-semibold text-error">permanently delete</span> all items and vessel assignments from the system. This action cannot be undone.
-                                    </p>
-                                    <p className="text-foreground-muted text-sm">
-                                        This is a development tool for testing purposes.
-                                    </p>
-                                    <div className="flex justify-end gap-3 pt-2">
-                                        <button
-                                            onClick={() => setIsClearAllModalOpen(false)}
-                                            disabled={isClearing}
-                                            className="px-4 py-2.5 text-foreground-muted hover:bg-foreground/5 transition-colors text-sm font-medium disabled:opacity-50"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleClearAllItems}
-                                            disabled={isClearing}
-                                            className="px-4 py-2.5 bg-error text-white hover:bg-error/90 disabled:opacity-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-card"
-                                        >
-                                            {isClearing ? 'Clearing...' : 'Clear All Items'}
                                         </button>
                                     </div>
                                 </div>

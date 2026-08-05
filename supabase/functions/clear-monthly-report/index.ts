@@ -41,20 +41,30 @@ Deno.serve(async (req: Request) => {
     if (!vesselSlug && month === undefined && year === undefined) {
       console.log('Clearing ALL monthly reports...')
 
-      // Delete all monthly report items first (though cascade should handle it)
-      await supabaseAdmin
-        .from('monthly_report_items')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000')
-
-      const { error: deleteAllError } = await supabaseAdmin
+      // Select all report IDs first
+      const { data: reports } = await supabaseAdmin
         .from('monthly_reports')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000')
+        .select('id')
 
-      if (deleteAllError) {
-        console.error('Error clearing all reports:', deleteAllError)
-        return errorResponse(`Failed to clear all reports: ${deleteAllError.message}`, 500)
+      if (reports && reports.length > 0) {
+        const reportIds = reports.map((r: { id: string }) => r.id)
+
+        // Delete from items first
+        await supabaseAdmin
+          .from('monthly_report_items')
+          .delete()
+          .in('report_id', reportIds)
+
+        // Then delete reports
+        const { error: deleteAllError } = await supabaseAdmin
+          .from('monthly_reports')
+          .delete()
+          .in('id', reportIds)
+
+        if (deleteAllError) {
+          console.error('Error clearing all reports:', deleteAllError)
+          return errorResponse(`Failed to clear all reports: ${deleteAllError.message}`, 500)
+        }
       }
 
       return successResponse({
