@@ -86,7 +86,12 @@ export default function BowGroup({
     }
   }, {} as Record<EquipmentCategory, { name: string; type: EquipmentCategory; items: InventoryItem[] }>)
 
-  const categoryEntries = Object.entries(groupedByCategory)
+  const CATEGORY_ORDER: EquipmentCategory[] = ['WEAPONS', 'COMMUNICATION', 'NAVIGATIONAL', 'ICT', 'AMMUNITIONS']
+  const categoryEntries = Object.entries(groupedByCategory).sort(([typeA], [typeB]) => {
+    const orderA = CATEGORY_ORDER.indexOf(typeA as EquipmentCategory)
+    const orderB = CATEGORY_ORDER.indexOf(typeB as EquipmentCategory)
+    return (orderA !== -1 ? orderA : 999) - (orderB !== -1 ? orderB : 999)
+  })
 
   return (
     <>
