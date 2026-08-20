@@ -6,6 +6,7 @@ import { Role, ROLES } from '@/lib/types/roles'
 import { useVessels, ClassOfVessel, Vessel } from '../hooks/useVessels'
 import { Anchor, Plus, Pencil, Trash2, X, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Filter, Package, Search, Ship } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 
 type SortDirection = 'asc' | 'desc' | null
 
@@ -274,11 +275,11 @@ export function VesselsPageClient({ role, basePath }: { role: Role, basePath: st
         return <ArrowDown className="w-3.5 h-3.5 text-primary" />
     }
 
-    if (loading) return <div className="p-4 text-foreground">Loading vessels data...</div>
     if (error) return <div className="p-4 text-error">Error: {error}</div>
 
     return (
         <div className="flex flex-col">
+            <LoadingOverlay isOpen={loading} message="Loading vessels data..." />
             <PageHeader
                 title="Vessel Management"
                 description="View class of vessels and bow numbers"

@@ -10,6 +10,7 @@ import { useEquipmentUniqueCode } from '../hooks/useEquipmentUniqueCode'
 import { useEquipmentItems, Item } from '../hooks/useEquipmentItems'
 import { Plus, Pencil, Trash2, X, Settings, ArrowLeft, Wrench, ShieldCheck } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { ImportItemsModal, type ParsedFileInfo } from './ImportItemsModal'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { getEquipmentGroupFromUniqueCode, getEquipmentGroupLabel, isNavigationalGroup, EquipmentGroup, isAmmunitionGroup } from '../utils/equipmentGroup'
@@ -278,11 +279,11 @@ export function EquipmentsPageClient({ role, basePath }: { role: Role, basePath:
         )
     }
 
-    if (loading) return <div className="p-4 text-foreground">Loading equipments...</div>
     if (error) return <div className="p-4 text-error">Error: {error}</div>
 
     return (
         <div className="flex flex-col">
+            <LoadingOverlay isOpen={loading} message="Loading equipments..." />
             <PageHeader
                 title="Equipment Management"
                 description="Manage and Group items by equipment"

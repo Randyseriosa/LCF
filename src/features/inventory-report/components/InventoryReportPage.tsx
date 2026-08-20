@@ -7,6 +7,7 @@ import { ROLES } from '@/lib/types/roles'
 import FilterTagInput from './FilterTagInput'
 import BowGroup from './BowGroup'
 import MultiSelectDropdown from './MultiSelectDropdown'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getEquipmentGroupLabel } from '@/features/equipment/utils/equipmentGroup'
 import { exportInventoryToExcel } from '@/features/inventory-report/utils/exportInventoryExcel'
@@ -57,6 +58,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
 
   return (
     <div className="space-y-6">
+      <LoadingOverlay isOpen={loading} message="Scanning Database..." />
       <PageHeader
         title="Export Data"
         description={`Total Vessels: ${bowGroups.length}`}
@@ -257,11 +259,7 @@ export default function InventoryReportPage({ role = ROLES.viewer }: InventoryRe
 
         {/* ── Divider + Results ── */}
         <div className="border-t border-foreground/10">
-          {loading ? (
-            <div className="px-5 py-8 text-center text-foreground-muted text-sm">
-              Loading inventory items...
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="px-5 py-4 text-error text-sm">
               {error}
             </div>

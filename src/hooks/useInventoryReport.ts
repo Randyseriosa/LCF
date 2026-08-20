@@ -192,11 +192,13 @@ export function useInventoryReport() {
         supabase
           .from('monthly_report_items')
           .select(`*, items(equipments(id, unique_code, name, equipment_type)), monthly_reports!report_id(id, report_month, created_at, vessels!vessel_id(bow_number, class_of_vessel(name)))`)
-          .order('unique_code', { ascending: true }),
+          .order('unique_code', { ascending: true })
+          .limit(50000),
         supabase
           .from('vessels')
           .select('id, bow_number, class_of_vessel(name)')
-          .order('bow_number', { ascending: true }),
+          .order('bow_number', { ascending: true })
+          .limit(10000),
         supabase
           .from('class_of_vessel')
           .select('id, name')
@@ -204,7 +206,8 @@ export function useInventoryReport() {
         supabase
           .from('vessel_item_assignments')
           .select('vessel_id, item_id, item_id!inner(*, equipments(id, unique_code, name, equipment_type))')
-          .eq('is_current', true),
+          .eq('is_current', true)
+          .limit(50000),
       ])
       if (itemsRes.error) {
         console.error('[useInventoryReport] items query error:', itemsRes.error)
@@ -266,7 +269,13 @@ export function useInventoryReport() {
       setAllVessels(vesselsRes.data as VesselMaster[] || [])
       const flattenedMasterlist = (masterlistRes.data || []).flatMap((assignment: any) => {
         if (!assignment.item_id) return []
-        return [{ ...assignment.item_id, vessel_id: assignment.vessel_id }]
+        return [{
+          ...assignment.item_id,
+          vessel_id: assignment.vessel_id,
+          items: {
+            equipments: assignment.item_id.equipments
+          }
+        }]
       })
       setMasterlistItems(flattenedMasterlist as MasterlistItem[])
     } catch (err) {
