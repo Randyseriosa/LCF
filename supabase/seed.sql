@@ -122,7 +122,8 @@ BEGIN
     RETURNING id INTO v_class_id;
 
     INSERT INTO public.vessels (class_of_vessel, bow_number, slug) VALUES 
-    (v_class_id, 'DB412', 'db412')
+    (v_class_id, 'DB412', 'db412'),
+    (v_class_id, 'S/Y AUG PEARL (SYAGP)', 'syagp')
     ON CONFLICT (slug) DO NOTHING;
 
 END

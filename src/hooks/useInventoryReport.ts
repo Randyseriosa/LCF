@@ -163,6 +163,28 @@ function applyFieldFilters(list: InventoryItem[], filters: InventoryFilters, exc
   })
 }
 
+/**
+ * Paginated fetch utility — auto-paginates through Supabase results using `.range()`.
+ * Accepts a factory function that returns a fresh query builder for each page.
+ * This ensures no data is silently truncated by PostgREST's `max_rows` cap.
+ */
+async function fetchAllRows<T>(
+  queryFactory: () => any,
+  pageSize = 1000
+): Promise<T[]> {
+  const allRows: T[] = []
+  let offset = 0
+  while (true) {
+    const { data, error } = await queryFactory().range(offset, offset + pageSize - 1)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    allRows.push(...(data as T[]))
+    if (data.length < pageSize) break // Last page
+    offset += pageSize
+  }
+  return allRows
+}
+
 export function useInventoryReport() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([])
   const [rawItems, setRawItems] = useState<InventoryItem[]>([])
@@ -188,31 +210,18 @@ export function useInventoryReport() {
     setError(null)
     try {
       const supabase = createClient()
-      const [itemsRes, vesselsRes, classesRes, masterlistRes] = await Promise.all([
-        supabase
-          .from('monthly_report_items')
-          .select(`*, items(equipments(id, unique_code, name, equipment_type)), monthly_reports!report_id(id, report_month, created_at, vessels!vessel_id(bow_number, class_of_vessel(name)))`)
-          .order('unique_code', { ascending: true })
-          .limit(50000),
+
+      // Fetch small reference tables directly (unlikely to exceed limits)
+      const [vesselsRes, classesRes] = await Promise.all([
         supabase
           .from('vessels')
           .select('id, bow_number, class_of_vessel(name)')
-          .order('bow_number', { ascending: true })
-          .limit(10000),
+          .order('bow_number', { ascending: true }),
         supabase
           .from('class_of_vessel')
           .select('id, name')
           .order('sort_order', { ascending: true }),
-        supabase
-          .from('vessel_item_assignments')
-          .select('vessel_id, item_id, item_id!inner(*, equipments(id, unique_code, name, equipment_type))')
-          .eq('is_current', true)
-          .limit(50000),
       ])
-      if (itemsRes.error) {
-        console.error('[useInventoryReport] items query error:', itemsRes.error)
-        throw itemsRes.error
-      }
       if (vesselsRes.error) {
         console.error('[useInventoryReport] vessels query error:', vesselsRes.error)
         throw vesselsRes.error
@@ -221,13 +230,26 @@ export function useInventoryReport() {
         console.error('[useInventoryReport] classes query error:', classesRes.error)
         throw classesRes.error
       }
-      if (masterlistRes.error) {
-        console.error('[useInventoryReport] masterlist query error:', masterlistRes.error)
-        throw masterlistRes.error
-      }
       setAllClasses(classesRes.data || [])
+      setAllVessels(vesselsRes.data as VesselMaster[] || [])
 
-      const itemsData = itemsRes.data as any[] || []
+      // Paginated fetch for heavy tables — auto-paginates to get ALL rows
+      const [itemsData, masterlistData] = await Promise.all([
+        fetchAllRows<any>(
+          () => supabase
+            .from('monthly_report_items')
+            .select(`*, items(equipments(id, unique_code, name, equipment_type)), monthly_reports!report_id(id, report_month, created_at, vessels!vessel_id(bow_number, class_of_vessel(name)))`)
+            .order('unique_code', { ascending: true })
+        ),
+        fetchAllRows<any>(
+          () => supabase
+            .from('vessel_item_assignments')
+            .select('vessel_id, item_id, item_id!inner(*, equipments(id, unique_code, name, equipment_type))')
+            .eq('is_current', true)
+        ),
+      ])
+
+      console.log(`[useInventoryReport] Fetched ${itemsData.length} report items, ${masterlistData.length} masterlist assignments`)
 
       // Filter to keep only items from the latest report for each vessel
       const latestReportByBow = new Map<string, { time: number; created_at: string; report_id: string }>()
@@ -266,8 +288,7 @@ export function useInventoryReport() {
 
       setAllItems(filteredItems)
       setRawItems(itemsData)
-      setAllVessels(vesselsRes.data as VesselMaster[] || [])
-      const flattenedMasterlist = (masterlistRes.data || []).flatMap((assignment: any) => {
+      const flattenedMasterlist = (masterlistData || []).flatMap((assignment: any) => {
         if (!assignment.item_id) return []
         return [{
           ...assignment.item_id,
